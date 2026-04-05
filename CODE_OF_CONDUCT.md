@@ -1,5 +1,56 @@
-# 行为准则
+# Contributor Covenant Code of Conduct
 
-参与者须保持尊重与建设性沟通。骚扰与歧视性行为不被接受。
+## Our pledge
 
-具体条款可采用 [Contributor Covenant](https://www.contributor-covenant.org/)（2.1）；项目负责人有权拒绝或移除不符合行为的贡献。
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
+
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
+
+## Our standards
+
+**Examples of behavior that contributes to a positive environment:**
+
+- Demonstrating empathy and kindness toward other people
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience
+- Focusing on what is best not just for us as individuals, but for the overall community
+
+**Examples of unacceptable behavior:**
+
+- The use of sexualized language or imagery, and sexual attention or advances of any kind
+- Trolling, insulting or derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others’ private information, such as a physical or email address, without their explicit permission
+- Other conduct which could reasonably be considered inappropriate in a professional setting
+
+## Enforcement responsibilities
+
+Community leaders are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior that they deem inappropriate, threatening, offensive, or harmful.
+
+## Scope
+
+This Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public spaces (e.g. via official social media or as a delegate at an event).
+
+## Enforcement
+
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at **[GitHub: @andoop](https://github.com/andoop)** (use profile contact or a private security advisory if sensitive).
+
+All complaints will be reviewed and investigated promptly and fairly.
+
+Community leaders will follow these **Community Impact Guidelines** in determining consequences for any action they deem in violation of this Code of Conduct:
+
+| Impact | Consequence |
+|--------|-------------|
+| Use of inappropriate language or other behavior deemed unprofessional | Private written warning; clarification of expectations |
+| A violation through a single incident or series of actions | Warning with consequences for continued behavior; temporary or permanent ban from interaction |
+| Repeated violation, harassment, or aggression toward individuals | Permanent ban from community spaces |
+
+## Attribution
+
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1, available at  
+https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
+
+---
+
+Community leaders may update enforcement contacts; the in-repo version on `main` prevails.

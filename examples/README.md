@@ -1,4 +1,6 @@
-# 示例程序索引
+# Examples / 示例程序索引
+
+**English:** Single-file `.sym` samples live in this folder; subfolders are multi-file demos. Run from repo root: `sym run <entry>.sym`.
 
 根目录下的 `.sym` 多为单文件小例子；子目录为多文件或应用场景。
 
