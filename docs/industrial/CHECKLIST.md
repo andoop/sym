@@ -6,7 +6,7 @@
 |---|--------|----------------|
 | 1 | 语言规范大纲 | [../spec/LANGUAGE.md](../spec/LANGUAGE.md) |
 | 2 | 操作语义笔记 | [../spec/SEMANTICS.md](../spec/SEMANTICS.md) |
-| 3 | 核心子集定义 | [../spec/VM_SUBSET.md](../spec/VM_SUBSET.md) |
+| 3 | 字节码 VM 说明与 parity | [../spec/VM_SUBSET.md](../spec/VM_SUBSET.md)、[../spec/VM_TREE_PARITY.md](../spec/VM_TREE_PARITY.md) |
 | 4 | VM / 树解释器对齐说明 | [../spec/VM_TREE_PARITY.md](../spec/VM_TREE_PARITY.md)、[spec-and-semantics.md](./spec-and-semantics.md) §4 |
 | 5 | VM 特性扩展路线图 | [vm-and-performance.md](./vm-and-performance.md) §1 |
 | 6 | 运行时模型与上限 | [runtime-and-security.md](./runtime-and-security.md) §1 |

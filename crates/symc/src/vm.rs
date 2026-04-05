@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 use std::io::Write;
 
-use crate::bytecode::{format_value_line, Instr, Program, ValCmpOp};
+use crate::bytecode::{format_value_line, HostBuiltin, Instr, Program, ValCmpOp};
 
 #[derive(Debug)]
 pub struct VmError {
@@ -51,11 +51,35 @@ fn cmp_ordering_values(l: &Value, r: &Value) -> Result<Ordering, VmError> {
 }
 
 pub fn run(prog: &Program) -> Result<Value, VmError> {
+    vm_run(prog, prog.main_idx, vec![])
+}
+
+/// Run `prog.chunks[fn_idx]` with the first `args.len()` locals initialized (for nested host calls).
+pub(crate) fn run_with_entry(
+    prog: &Program,
+    fn_idx: usize,
+    args: Vec<Value>,
+) -> Result<Value, VmError> {
+    vm_run(prog, fn_idx, args)
+}
+
+fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmError> {
+    let callee_chunk = prog.chunks.get(fn_idx).ok_or_else(|| VmError {
+        message: format!("VM: bad entry chunk index {fn_idx}"),
+    })?;
+    if callee_chunk.local_count < args.len() {
+        return Err(VmError {
+            message: "VM: entry argument count exceeds callee locals".into(),
+        });
+    }
+    let mut locals = vec![Value::Unit; callee_chunk.local_count];
+    for (i, a) in args.into_iter().enumerate() {
+        locals[i] = a;
+    }
     let mut stack: Vec<Value> = Vec::with_capacity(32);
     let mut frames: Vec<(usize, usize, Vec<Value>)> = Vec::new();
-    let mut chunk_idx = prog.main_idx;
+    let mut chunk_idx = fn_idx;
     let mut pc: usize = 0;
-    let mut locals = vec![Value::Unit; prog.chunks[chunk_idx].local_count];
 
     loop {
         let chunk = &prog.chunks[chunk_idx];
@@ -300,6 +324,194 @@ pub fn run(prog: &Program) -> Result<Value, VmError> {
             Instr::Exit => {
                 let n = pop_int(&mut stack, "VM: `exit` expects Int")?;
                 std::process::exit(n as i32);
+            }
+            Instr::Dup => {
+                let v = stack.last().cloned().ok_or_else(|| VmError {
+                    message: "VM: stack underflow on Dup".into(),
+                })?;
+                stack.push(v);
+                pc += 1;
+            }
+            Instr::PushFn(idx) => {
+                let name = prog.fn_names.get(*idx).cloned().ok_or_else(|| VmError {
+                    message: format!("VM: bad PushFn index {idx}"),
+                })?;
+                stack.push(Value::FnRef(name));
+                pc += 1;
+            }
+            Instr::CallIndirect { argc } => {
+                let argc_u = *argc as usize;
+                let mut args: Vec<Value> = Vec::with_capacity(argc_u);
+                for _ in 0..argc_u {
+                    args.push(stack.pop().ok_or_else(|| VmError {
+                        message: "VM: stack underflow on CallIndirect".into(),
+                    })?);
+                }
+                args.reverse();
+                let callee = stack.pop().ok_or_else(|| VmError {
+                    message: "VM: stack underflow on CallIndirect (callee)".into(),
+                })?;
+                let Value::FnRef(fname) = callee else {
+                    return Err(VmError {
+                        message: "VM: CallIndirect callee is not FnRef".into(),
+                    });
+                };
+                let fn_idx = prog
+                    .fn_names
+                    .iter()
+                    .position(|n| n == &fname)
+                    .ok_or_else(|| VmError {
+                        message: format!("VM: unknown function `{fname}` in CallIndirect"),
+                    })?;
+                let callee_chunk = &prog.chunks[fn_idx];
+                if callee_chunk.local_count < argc_u {
+                    return Err(VmError {
+                        message: "VM: CallIndirect callee local_count < argc".into(),
+                    });
+                }
+                let mut new_locals = vec![Value::Unit; callee_chunk.local_count];
+                for (i, a) in args.into_iter().enumerate() {
+                    new_locals[i] = a;
+                }
+                frames.push((chunk_idx, pc + 1, std::mem::take(&mut locals)));
+                chunk_idx = fn_idx;
+                pc = 0;
+                locals = new_locals;
+            }
+            Instr::BuildEnum {
+                typ_idx,
+                variant_idx,
+                field_name_indices,
+            } => {
+                let typ = chunk.strings.get(*typ_idx).cloned().ok_or_else(|| VmError {
+                    message: format!("VM: BuildEnum bad typ_idx {typ_idx}"),
+                })?;
+                let variant = chunk
+                    .strings
+                    .get(*variant_idx)
+                    .cloned()
+                    .ok_or_else(|| VmError {
+                        message: format!("VM: BuildEnum bad variant_idx {variant_idx}"),
+                    })?;
+                let mut fields: Vec<(String, Value)> = Vec::new();
+                for &name_i in field_name_indices.iter().rev() {
+                    let fname = chunk.strings.get(name_i).cloned().ok_or_else(|| VmError {
+                        message: format!("VM: BuildEnum bad field name idx {name_i}"),
+                    })?;
+                    let v = stack.pop().ok_or_else(|| VmError {
+                        message: "VM: stack underflow on BuildEnum".into(),
+                    })?;
+                    fields.push((fname, v));
+                }
+                fields.reverse();
+                stack.push(Value::Enum {
+                    typ,
+                    variant,
+                    fields,
+                });
+                pc += 1;
+            }
+            Instr::MatchEnumUnpack {
+                variant_idx,
+                arity,
+                fail_pc,
+            } => {
+                let want = chunk.strings.get(*variant_idx).ok_or_else(|| VmError {
+                    message: format!("VM: MatchEnumUnpack bad variant_idx {variant_idx}"),
+                })?;
+                let val = stack.pop().ok_or_else(|| VmError {
+                    message: "VM: stack underflow on MatchEnumUnpack".into(),
+                })?;
+                match val {
+                    Value::Enum {
+                        variant: v,
+                        fields,
+                        ..
+                    } if v == *want && fields.len() == *arity as usize => {
+                        for (_, fv) in fields.iter().rev() {
+                            stack.push(fv.clone());
+                        }
+                        pc += 1;
+                    }
+                    other => {
+                        stack.push(other);
+                        pc = *fail_pc;
+                    }
+                }
+            }
+            Instr::MatchFail => {
+                return Err(VmError {
+                    message: "VM: non-exhaustive match".into(),
+                });
+            }
+            Instr::ParseInt => {
+                let s = pop_string(&mut stack, "VM: `parse_int` expects String")?;
+                stack.push(crate::interp::value_parse_int_string(&s));
+                pc += 1;
+            }
+            Instr::Assert => {
+                let msg = pop_string(&mut stack, "VM: `assert` expects String message")?;
+                let ok = pop_bool(&mut stack, "VM: `assert` expects Bool")?;
+                if !ok {
+                    return Err(VmError {
+                        message: format!("assertion failed: {msg}"),
+                    });
+                }
+                stack.push(Value::Unit);
+                pc += 1;
+            }
+            Instr::HostBuiltin(b) => {
+                if *b == HostBuiltin::HttpPostSseFold {
+                    let reducer = stack.pop().ok_or_else(|| VmError {
+                        message: "VM: stack underflow on http_post_sse_fold".into(),
+                    })?;
+                    let state0 = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
+                    let body = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
+                    let headers = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
+                    let url = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
+                    let Value::FnRef(reducer) = reducer else {
+                        return Err(VmError {
+                            message: "VM: `http_post_sse_fold` last argument must be a function"
+                                .into(),
+                        });
+                    };
+                    let ridx = prog.fn_names.iter().position(|n| n == &reducer).ok_or_else(|| {
+                        VmError {
+                            message: format!("VM: unknown reducer `{reducer}`"),
+                        }
+                    })?;
+                    let out = crate::interp::http_post_sse_fold_with_reducer(
+                        &url,
+                        &headers,
+                        &body,
+                        &state0,
+                        |st, payload| match run_with_entry(
+                            prog,
+                            ridx,
+                            vec![Value::String(st), Value::String(payload)],
+                        ) {
+                            Ok(Value::String(s)) => Ok(s),
+                            Ok(_) => Err("SSE fold reducer must return String".into()),
+                            Err(e) => Err(e.message),
+                        },
+                    )
+                    .map_err(|m| VmError { message: m })?;
+                    stack.push(out);
+                } else {
+                    let n = b.argc() as usize;
+                    let mut argv: Vec<Value> = Vec::with_capacity(n);
+                    for _ in 0..n {
+                        argv.push(stack.pop().ok_or_else(|| VmError {
+                            message: format!("VM: stack underflow on host builtin {b:?}"),
+                        })?);
+                    }
+                    argv.reverse();
+                    let v = crate::interp::host_builtin_apply(*b, &argv).map_err(|m| VmError {
+                        message: m,
+                    })?;
+                    stack.push(v);
+                }
+                pc += 1;
             }
             Instr::Call { fn_idx, argc } => {
                 let callee = &prog.chunks[*fn_idx];

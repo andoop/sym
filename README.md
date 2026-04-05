@@ -17,7 +17,7 @@
 ## Features
 
 - **Types**: `Int`, `Bool`, `String`, `Unit`, algebraic data types (`type` / `match`), prelude `Option[T]` and `List[T]`
-- **Execution**: `sym run` (interpreter) or `sym run --vm` for a **compileable subset** (see [docs/spec/VM_SUBSET.md](docs/spec/VM_SUBSET.md))
+- **Execution**: `sym run` (tree interpreter) or `sym run --vm` (stack bytecode；与解释器对齐，见 [docs/spec/VM_SUBSET.md](docs/spec/VM_SUBSET.md))
 - **Modules**: `import` with stitched sources and `# sym:file` markers for diagnostics
 - **Built-ins**: I/O, strings, JSON helpers, HTTPS client (`http_post`, SSE fold), env/files/shell (see [docs/industrial/builtins-contracts.md](docs/industrial/builtins-contracts.md))
 - **Diagnostics**: human-readable or **single-line JSON** (`--message-format json`) with logical file/line hints for stitched sources
@@ -47,8 +47,8 @@ sym check examples/hello.sym
 # Run entrypoint `main` (no arguments)
 sym run examples/hello.sym
 
-# Bytecode VM (subset only; unsupported programs error with `VM: …`)
-sym run --vm examples/vm_fib.sym
+# Bytecode VM（与树解释器同语义的程序可对拍；不支持的构造会报 `VM: …`）
+sym run --vm examples/option.sym
 
 # Multi-file example (library + entry)
 sym run examples/call_lib.sym

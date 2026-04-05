@@ -222,7 +222,23 @@ pub fn run_module_vm(module: &Module) -> Result<interp::Value, SymError> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     use super::*;
+
+    static VM_TEST_ENV_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    fn escape_sym_string_literal(s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        for c in s.chars() {
+            match c {
+                '\\' => out.push_str("\\\\"),
+                '"' => out.push_str("\\\""),
+                c => out.push(c),
+            }
+        }
+        out
+    }
 
     #[test]
     fn builtins_string_ops() {
@@ -301,9 +317,16 @@ fn main() -> Int = 17 % 5 end
         parse_and_check(src).expect("mod");
     }
 
+    fn prelude_source() -> &'static str {
+        include_str!("../../../stdlib/prelude.sym")
+    }
+
+    fn with_prelude(module_body: &str) -> String {
+        format!("{}\n\n{}", prelude_source(), module_body)
+    }
+
     #[test]
     fn parse_int_and_assert() {
-        let prelude = include_str!("../../../stdlib/prelude.sym");
         let src = r#"
 fn main() -> Unit =
   do
@@ -316,7 +339,7 @@ fn main() -> Unit =
   end
 end
 "#;
-        parse_and_check(&format!("{prelude}\n\n{src}")).expect("parse_int assert");
+        parse_and_check(&with_prelude(src)).expect("parse_int assert");
     }
 
     #[test]
@@ -386,6 +409,98 @@ end
     }
 
     #[test]
+    fn vm_parity_read_file() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("symc_vm_read_{}.txt", std::process::id()));
+        std::fs::write(&path, "abc中文").unwrap();
+        let p = escape_sym_string_literal(path.to_str().expect("utf8 temp path"));
+        let body = format!(
+            r#"fn main() -> Bool =
+  match read_file("{p}")
+  | None => false
+  | Some(value: s) => s == "abc中文"
+  end
+end"#
+        );
+        assert_vm_matches_tree(&with_prelude(&body));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn vm_parity_write_file_ok_and_read_file() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("symc_vm_wr_{}.txt", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let p = escape_sym_string_literal(path.to_str().expect("utf8 temp path"));
+        let body = format!(
+            r#"fn main() -> Bool =
+  write_file_ok("{p}", "data")
+    && match read_file("{p}")
+    | None => false
+    | Some(value: s) => s == "data"
+    end
+end"#
+        );
+        assert_vm_matches_tree(&with_prelude(&body));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn vm_parity_env_get() {
+        let id = VM_TEST_ENV_SEQ.fetch_add(1, Ordering::Relaxed);
+        let key = format!("SYM_VM_PARITY_{}_{}", std::process::id(), id);
+        std::env::set_var(&key, "qv_val");
+        let k_esc = escape_sym_string_literal(&key);
+        let body = format!(
+            r#"fn main() -> Bool =
+  match env_get("{k_esc}")
+  | None => false
+  | Some(value: s) => s == "qv_val"
+  end
+end"#
+        );
+        assert_vm_matches_tree(&with_prelude(&body));
+        std::env::remove_var(&key);
+    }
+
+    #[test]
+    fn vm_parity_list_dir() {
+        let dir = std::env::temp_dir().join(format!("symc_ld_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.txt"), "x").unwrap();
+        let p = escape_sym_string_literal(dir.to_str().expect("utf8 temp path"));
+        let body = format!(
+            r#"fn main() -> Bool =
+  match list_dir("{p}")
+  | None => false
+  | Some(value: s) => index_of(s, "a.txt") >= 0
+  end
+end"#
+        );
+        assert_vm_matches_tree(&with_prelude(&body));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn vm_parity_json_extract_and_json_value() {
+        let body = r#"fn main() -> String =
+  concat(
+    match json_extract("{\"a\":\"hi\"}", "a")
+    | None => "E1"
+    | Some(value: s) => s
+    end,
+    concat("|",
+      match json_value("{\"n\":42}", "n")
+      | None => "E2"
+      | Some(value: s) => s
+      end
+    )
+  )
+end"#;
+        assert_vm_matches_tree(&with_prelude(body));
+    }
+
+    #[test]
     fn vm_parity_arith_if_let_call() {
         assert_vm_matches_tree(
             r#"
@@ -427,6 +542,31 @@ end
     fn vm_parity_concat_strlen_string_from_int() {
         assert_vm_matches_tree(
             r#"fn main() -> Bool = strlen(concat("x", string_from_int(7))) == 2 end"#,
+        );
+    }
+
+    #[test]
+    fn vm_parity_host_trim_starts_with_json_string() {
+        assert_vm_matches_tree(
+            r#"fn main() -> Bool =
+  trim("  x") == "x"
+    && starts_with("abc", "ab")
+    && json_string("a\"b") == "\"a\\\"b\""
+end"#,
+        );
+    }
+
+    #[test]
+    fn vm_parity_substring_index_of() {
+        assert_vm_matches_tree(
+            r#"fn main() -> Bool =
+  substring("αβγδ", 1, 2) == "βγ"
+    && substring("αβγδ", 10, 1) == ""
+    && substring("αβ", 0, -1) == "αβ"
+    && index_of("αβγ", "β") == 1
+    && index_of("hello", "ll") == 2
+    && index_of("a", "bc") == -1
+end"#,
         );
     }
 

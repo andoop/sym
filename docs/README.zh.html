@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sym — 清晰、利于工具协同的小型语言</title>
-  <meta name="description" content="Sym：带静态类型与 ADT 的解释型语言，多文件 import，树解释器与可选字节码 VM。命令行 sym，Rust 实现。" />
+  <meta name="description" content="Sym：带静态类型与 ADT 的解释型语言，多文件 import；树解释器与可选栈式字节码 VM（sym run --vm）。命令行 sym，Rust 实现。" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -27,7 +27,7 @@
         <h1>Sym — 结构清晰、歧义少</h1>
         <p class="tagline">
           面向「人、编辑器与模型」都能跟上的小型语言：<strong>静态类型</strong>、<strong>代数类型</strong>、<strong>多文件 import</strong>；
-          默认<strong>树遍历解释器</strong>，可选 <code>sym run --vm</code> 走<strong>字节码 VM 子集</strong>。
+          默认<strong>树遍历解释器</strong>；可选 <code>sym run --vm</code> 走<strong>栈式字节码</strong>，与解释器语义对齐（未下沉构造编译期报错）。
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="https://github.com/andoop/sym">在 GitHub 上查看</a>
@@ -48,7 +48,8 @@
           <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/SEMANTICS.md">操作语义</a></li>
           <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/SYNTAX.md">语法全览</a> ·
               <a href="https://github.com/andoop/sym/blob/main/docs/spec/SOUL.md">设计理念</a></li>
-          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/VM_SUBSET.md">VM 子集</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/VM_SUBSET.md">字节码 VM 说明</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/docs/spec/VM_TREE_PARITY.md">树↔VM 对照</a></li>
           <li><a href="https://github.com/andoop/sym/blob/main/docs/DEVELOPMENT.md">开发说明</a></li>
         </ul>
       </div>

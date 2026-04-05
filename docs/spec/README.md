@@ -8,7 +8,7 @@
 | [SEMANTICS.md](SEMANTICS.md) | Operational notes | 操作语义笔记 |
 | [SYNTAX.md](SYNTAX.md) | Full syntax + future blueprint | 语法全览与蓝图 |
 | [SOUL.md](SOUL.md) | Design goals (“soul” of Sym) | 设计理念 |
-| [VM_SUBSET.md](VM_SUBSET.md) | `sym run --vm` compileable subset | VM 可编译子集 |
+| [VM_SUBSET.md](VM_SUBSET.md) | `sym run --vm` bytecode path & builtins | 字节码路径与内建说明 |
 | [VM_TREE_PARITY.md](VM_TREE_PARITY.md) | VM vs interpreter parity matrix | VM 与树解释器对照 |
 
 Industrial / process docs live under [../industrial/](../industrial/) and [../process/](../process/).

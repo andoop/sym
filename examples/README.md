@@ -8,7 +8,7 @@
 |------|------|
 | `hello.sym` | 最小入口 |
 | `fib.sym` | 递归 |
-| `vm_fib.sym` | 字节码 VM 子集 |
+| `vm_fib.sym` | 递归斐波那契（亦可用 `sym run --vm` 对拍） |
 | `option.sym` | `Option` / prelude |
 | `list.sym` | `List` |
 | `while_input.sym` | `while` + stdin |

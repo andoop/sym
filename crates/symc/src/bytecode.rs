@@ -1,14 +1,63 @@
-//! Stack bytecode for a **subset** of Sym. Unsupported constructs return [`CompileError`].
+//! Stack bytecode for Sym. Unsupported constructs return [`CompileError`].
 
 use std::collections::HashMap;
 
-use crate::ast::{BinOp, Expr, ExprKind, FnDef, Item, Module, Param, Stmt, UnaryOp};
+use crate::ast::{
+    BinOp, Expr, ExprKind, FnDef, Item, Module, Param, Stmt, TypeExpr, UnaryOp,
+};
 use crate::span::Span;
 
 #[derive(Debug)]
 pub struct CompileError {
     pub span: Span,
     pub message: String,
+}
+
+/// Host (I/O, FS, HTTP, JSON, …) builtins shared by the tree interpreter and the VM.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HostBuiltin {
+    ReadLine,
+    EnvGet,
+    ReadFile,
+    WriteFile,
+    WriteFileOk,
+    ListDir,
+    GlobFiles,
+    ShellExec,
+    Trim,
+    StartsWith,
+    Substring,
+    IndexOf,
+    HttpPost,
+    StdoutPrint,
+    JsonString,
+    JsonExtract,
+    JsonValue,
+    HttpPostSseFold,
+}
+
+impl HostBuiltin {
+    pub const fn argc(self) -> u8 {
+        match self {
+            HostBuiltin::ReadLine => 0,
+            HostBuiltin::EnvGet
+            | HostBuiltin::ReadFile
+            | HostBuiltin::ListDir
+            | HostBuiltin::Trim
+            | HostBuiltin::JsonString
+            | HostBuiltin::StdoutPrint => 1,
+            HostBuiltin::WriteFile
+            | HostBuiltin::WriteFileOk
+            | HostBuiltin::GlobFiles
+            | HostBuiltin::ShellExec
+            | HostBuiltin::StartsWith
+            | HostBuiltin::IndexOf
+            | HostBuiltin::JsonExtract
+            | HostBuiltin::JsonValue => 2,
+            HostBuiltin::Substring | HostBuiltin::HttpPost => 3,
+            HostBuiltin::HttpPostSseFold => 5,
+        }
+    }
 }
 
 /// Relational / equality on arbitrary [`crate::interp::Value`] (Int, String, Bool, Unit, …).
@@ -71,6 +120,32 @@ pub enum Instr {
     StrLen,
     /// Pop `Int` and `std::process::exit` (no return).
     Exit,
+    /// Duplicate top stack value.
+    Dup,
+    /// Push `Value::FnRef` for `prog.fn_names[idx]`.
+    PushFn(usize),
+    /// Pop `argc` arguments then `FnRef` callee; dispatch like `Call`.
+    CallIndirect { argc: u8 },
+    /// Pop `arity` values (top = last field in source order); push `Value::Enum`.
+    BuildEnum {
+        typ_idx: usize,
+        variant_idx: usize,
+        field_name_indices: Vec<usize>,
+    },
+    /// Pop scrutinee: if `Enum` with matching `variant` and field count, push fields (first field on top); else restore value and jump to `fail_pc`.
+    MatchEnumUnpack {
+        variant_idx: usize,
+        arity: u8,
+        fail_pc: usize,
+    },
+    /// `match` fell through (runtime error).
+    MatchFail,
+    /// Pop `String`, push `Option[Int]` as enum value (like `parse_int`).
+    ParseInt,
+    /// Pop `String` message then `Bool` condition; if false, VM error.
+    Assert,
+    /// OS / HTTP / JSON builtin (see [`HostBuiltin::argc`]).
+    HostBuiltin(HostBuiltin),
     Ret,
 }
 
@@ -90,12 +165,18 @@ pub struct Program {
 
 struct CompileCtx<'a> {
     fn_idx: &'a HashMap<String, usize>,
+    /// `(type_name, variant_name) -> field names in source order`
+    variants: &'a HashMap<(String, String), Vec<String>>,
     scopes: Vec<HashMap<String, u8>>,
     next_slot: u8,
 }
 
 impl<'a> CompileCtx<'a> {
-    fn new(fn_idx: &'a HashMap<String, usize>, params: &[Param]) -> Self {
+    fn new(
+        fn_idx: &'a HashMap<String, usize>,
+        variants: &'a HashMap<(String, String), Vec<String>>,
+        params: &[Param],
+    ) -> Self {
         let mut m = HashMap::new();
         for (i, p) in params.iter().enumerate() {
             m.insert(p.name.clone(), i as u8);
@@ -103,6 +184,7 @@ impl<'a> CompileCtx<'a> {
         let next_slot = params.len().min(255) as u8;
         Self {
             fn_idx,
+            variants,
             scopes: vec![m],
             next_slot,
         }
@@ -131,6 +213,30 @@ impl<'a> CompileCtx<'a> {
     }
 }
 
+fn host_builtin_for_name(name: &str) -> Option<HostBuiltin> {
+    Some(match name {
+        "read_line" => HostBuiltin::ReadLine,
+        "env_get" => HostBuiltin::EnvGet,
+        "read_file" => HostBuiltin::ReadFile,
+        "write_file" => HostBuiltin::WriteFile,
+        "write_file_ok" => HostBuiltin::WriteFileOk,
+        "list_dir" => HostBuiltin::ListDir,
+        "glob_files" => HostBuiltin::GlobFiles,
+        "shell_exec" => HostBuiltin::ShellExec,
+        "trim" => HostBuiltin::Trim,
+        "starts_with" => HostBuiltin::StartsWith,
+        "substring" => HostBuiltin::Substring,
+        "index_of" => HostBuiltin::IndexOf,
+        "http_post" => HostBuiltin::HttpPost,
+        "stdout_print" => HostBuiltin::StdoutPrint,
+        "json_string" => HostBuiltin::JsonString,
+        "json_extract" => HostBuiltin::JsonExtract,
+        "json_value" => HostBuiltin::JsonValue,
+        "http_post_sse_fold" => HostBuiltin::HttpPostSseFold,
+        _ => return None,
+    })
+}
+
 fn unsupported(span: Span, msg: &str) -> CompileError {
     CompileError {
         span,
@@ -144,6 +250,44 @@ fn patch_jump(code: &mut [Instr], at: usize, target: usize) {
             *t = target
         }
         _ => panic!("patch_jump: wrong instr at {at}"),
+    }
+}
+
+fn patch_match_unpack(code: &mut [Instr], at: usize, target: usize) {
+    if let Instr::MatchEnumUnpack { fail_pc, .. } = &mut code[at] {
+        *fail_pc = target;
+    } else {
+        panic!("patch_match_unpack: wrong instr at {at}");
+    }
+}
+
+fn collect_variants(module: &Module) -> HashMap<(String, String), Vec<String>> {
+    let mut m = HashMap::new();
+    for item in &module.items {
+        if let Item::Type(td) = item {
+            for v in &td.variants {
+                let names: Vec<String> = v.fields.iter().map(|f| f.name.clone()).collect();
+                m.insert((td.name.clone(), v.name.clone()), names);
+            }
+        }
+    }
+    m
+}
+
+/// If `variant` is unique across all ADTs, return its `(type_name, field names)`.
+fn unique_variant_def<'a>(
+    variants: &'a HashMap<(String, String), Vec<String>>,
+    variant: &str,
+) -> Option<(&'a String, &'a Vec<String>)> {
+    let hits: Vec<_> = variants
+        .iter()
+        .filter(|((_, vn), _)| vn == variant)
+        .collect();
+    if hits.len() == 1 {
+        let ((tn, _), fields) = hits[0];
+        Some((tn, fields))
+    } else {
+        None
     }
 }
 
@@ -236,10 +380,16 @@ fn compile_expr(
             out.push(Instr::PushStr(i));
         }
         ExprKind::Var(name) => {
-            let slot = ctx
-                .lookup(name)
-                .ok_or_else(|| unsupported(e.span, &format!("VM: unknown variable `{name}`")))?;
-            out.push(Instr::LoadLocal(slot));
+            if let Some(slot) = ctx.lookup(name) {
+                out.push(Instr::LoadLocal(slot));
+            } else if let Some(&idx) = ctx.fn_idx.get(name) {
+                out.push(Instr::PushFn(idx));
+            } else {
+                return Err(unsupported(
+                    e.span,
+                    &format!("VM: unknown variable `{name}`"),
+                ));
+            }
         }
         ExprKind::Unary { op, expr } => {
             compile_expr(expr, ctx, strings, out)?;
@@ -453,25 +603,73 @@ fn compile_expr(
                     out.push(Instr::Exit);
                     return Ok(());
                 }
-                let idx = *ctx.fn_idx.get(fname).ok_or_else(|| {
-                    unsupported(
-                        callee.span,
-                        &format!("VM: call to unknown function `{fname}`"),
-                    )
-                })?;
-                for a in args {
-                    compile_expr(a, ctx, strings, out)?;
+                if fname == "parse_int" {
+                    if args.len() != 1 {
+                        return Err(unsupported(
+                            e.span,
+                            "VM: `parse_int` expects one String argument",
+                        ));
+                    }
+                    compile_expr(&args[0], ctx, strings, out)?;
+                    out.push(Instr::ParseInt);
+                    return Ok(());
                 }
-                out.push(Instr::Call {
-                    fn_idx: idx,
-                    argc: args.len() as u8,
-                });
-            } else {
-                return Err(unsupported(
-                    e.span,
-                    "VM: indirect call (use tree interpreter)",
-                ));
+                if fname == "assert" {
+                    if args.len() != 2 {
+                        return Err(unsupported(
+                            e.span,
+                            "VM: `assert` expects (Bool, String)",
+                        ));
+                    }
+                    compile_expr(&args[0], ctx, strings, out)?;
+                    compile_expr(&args[1], ctx, strings, out)?;
+                    out.push(Instr::Assert);
+                    out.push(Instr::PushUnit);
+                    return Ok(());
+                }
+                if ctx.lookup(fname).is_none() {
+                    if let Some(b) = host_builtin_for_name(fname) {
+                        let argc = b.argc() as usize;
+                        if args.len() != argc {
+                            return Err(unsupported(
+                                e.span,
+                                &format!(
+                                    "VM: `{fname}` expects {argc} argument(s), got {}",
+                                    args.len()
+                                ),
+                            ));
+                        }
+                        if args.len() > 255 {
+                            return Err(unsupported(e.span, "VM: too many arguments"));
+                        }
+                        for a in args {
+                            compile_expr(a, ctx, strings, out)?;
+                        }
+                        out.push(Instr::HostBuiltin(b));
+                        return Ok(());
+                    }
+                    if let Some(&idx) = ctx.fn_idx.get(fname) {
+                        for a in args {
+                            compile_expr(a, ctx, strings, out)?;
+                        }
+                        out.push(Instr::Call {
+                            fn_idx: idx,
+                            argc: args.len() as u8,
+                        });
+                        return Ok(());
+                    }
+                }
             }
+            compile_expr(callee, ctx, strings, out)?;
+            for a in args {
+                compile_expr(a, ctx, strings, out)?;
+            }
+            if args.len() > 255 {
+                return Err(unsupported(e.span, "VM: too many arguments"));
+            }
+            out.push(Instr::CallIndirect {
+                argc: args.len() as u8,
+            });
         }
         ExprKind::While { cond, body } => {
             // Condition type is already `Bool` after typecheck; allow `Var`, `Call`, comparisons, etc.
@@ -486,16 +684,204 @@ fn compile_expr(
             patch_jump(out, j_exit, loop_exit);
             out.push(Instr::PushUnit);
         }
-        ExprKind::Match { .. } => {
-            return Err(unsupported(e.span, "VM: `match` (use tree interpreter)"));
+        ExprKind::Match { scrutinee, arms } => {
+            compile_match(scrutinee, arms, e.span, ctx, strings, out)?;
         }
-        ExprKind::Construct { .. } => {
-            return Err(unsupported(
-                e.span,
-                "VM: enum constructor (use tree interpreter)",
-            ));
+        ExprKind::Construct {
+            typ,
+            variant,
+            args,
+        } => {
+            let TypeExpr::Named { name: tname, .. } = typ else {
+                return Err(unsupported(
+                    e.span,
+                    "VM: enum constructor needs named type",
+                ));
+            };
+            let field_names = ctx
+                .variants
+                .get(&(tname.clone(), variant.clone()))
+                .ok_or_else(|| {
+                    unsupported(
+                        e.span,
+                        &format!("VM: unknown enum `{tname}::{variant}`"),
+                    )
+                })?;
+            if field_names.len() != args.len() {
+                return Err(unsupported(
+                    e.span,
+                    "VM: constructor argument count mismatch",
+                ));
+            }
+            for a in args {
+                compile_expr(a, ctx, strings, out)?;
+            }
+            let typ_idx = intern_string(strings, tname);
+            let variant_idx = intern_string(strings, variant);
+            let field_name_indices: Vec<usize> = field_names
+                .iter()
+                .map(|n| intern_string(strings, n))
+                .collect();
+            out.push(Instr::BuildEnum {
+                typ_idx,
+                variant_idx,
+                field_name_indices,
+            });
         }
     }
+    Ok(())
+}
+
+fn compile_pattern_from_stack(
+    pat: &crate::ast::Pattern,
+    fail_arm: Option<usize>,
+    unpack_fixups: &mut Vec<(usize, Option<usize>)>,
+    ctx: &mut CompileCtx<'_>,
+    strings: &mut Vec<String>,
+    out: &mut Vec<Instr>,
+) -> Result<(), CompileError> {
+    use crate::ast::Pattern;
+    use crate::ast::PatternField;
+    match pat {
+        Pattern::Wildcard => {
+            out.push(Instr::Pop);
+        }
+        Pattern::Bind(n) => {
+            let slot = ctx.alloc_slot(n.clone())?;
+            out.push(Instr::StoreLocal(slot));
+        }
+        Pattern::Ctor { name, fields } => {
+            let has_named = fields
+                .iter()
+                .any(|f| matches!(f, PatternField::Named(_, _)));
+            let has_pos = fields.iter().any(|f| matches!(f, PatternField::Pos(_)));
+            if has_named && has_pos {
+                return Err(CompileError {
+                    span: Span::new(0, 0),
+                    message: "VM: mixed named/positional match pattern".into(),
+                });
+            }
+            let vidx = intern_string(strings, name);
+            let arity = fields.len() as u8;
+            let unpack_at = out.len();
+            out.push(Instr::MatchEnumUnpack {
+                variant_idx: vidx,
+                arity,
+                fail_pc: 0,
+            });
+            unpack_fixups.push((unpack_at, fail_arm));
+            if has_named {
+                let Some((_, def_fields)) = unique_variant_def(ctx.variants, name) else {
+                    return Err(CompileError {
+                        span: Span::new(0, 0),
+                        message: format!("VM: ambiguous or unknown variant `{name}` in match"),
+                    });
+                };
+                if def_fields.len() != fields.len() {
+                    return Err(CompileError {
+                        span: Span::new(0, 0),
+                        message: "VM: pattern field count mismatch".into(),
+                    });
+                }
+                let mut temps: Vec<u8> = Vec::new();
+                for _ in 0..def_fields.len() {
+                    let t = ctx.alloc_slot(format!("__m{}", temps.len()))?;
+                    temps.push(t);
+                    out.push(Instr::StoreLocal(t));
+                }
+                for f in fields {
+                    if let PatternField::Named(n, p) = f {
+                        let idx = def_fields
+                            .iter()
+                            .position(|dn| dn == n)
+                            .ok_or_else(|| CompileError {
+                                span: Span::new(0, 0),
+                                message: format!("VM: unknown field `{n}` in pattern"),
+                            })?;
+                        out.push(Instr::LoadLocal(temps[idx]));
+                        compile_pattern_from_stack(
+                            p.as_ref(),
+                            fail_arm,
+                            unpack_fixups,
+                            ctx,
+                            strings,
+                            out,
+                        )?;
+                    }
+                }
+            } else {
+                for f in fields {
+                    if let PatternField::Pos(p) = f {
+                        compile_pattern_from_stack(
+                            p.as_ref(),
+                            fail_arm,
+                            unpack_fixups,
+                            ctx,
+                            strings,
+                            out,
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn compile_match(
+    scrutinee: &Expr,
+    arms: &[crate::ast::MatchArm],
+    span: Span,
+    ctx: &mut CompileCtx<'_>,
+    strings: &mut Vec<String>,
+    out: &mut Vec<Instr>,
+) -> Result<(), CompileError> {
+    if arms.is_empty() {
+        return Err(unsupported(span, "VM: empty match"));
+    }
+    compile_expr(scrutinee, ctx, strings, out)?;
+    let mut start_of_arm: Vec<usize> = vec![0; arms.len()];
+    let mut end_jumps: Vec<usize> = Vec::new();
+    let mut unpack_fixups: Vec<(usize, Option<usize>)> = Vec::new();
+
+    for (i, arm) in arms.iter().enumerate() {
+        start_of_arm[i] = out.len();
+        ctx.push_scope();
+        let fail_arm = if i + 1 < arms.len() {
+            Some(i + 1)
+        } else {
+            None
+        };
+        compile_pattern_from_stack(
+            &arm.pattern,
+            fail_arm,
+            &mut unpack_fixups,
+            ctx,
+            strings,
+            out,
+        )?;
+        compile_expr(&arm.body, ctx, strings, out)?;
+        ctx.pop_scope();
+        // Every arm must jump past `MatchFail`; the last arm is not special.
+        end_jumps.push(out.len());
+        out.push(Instr::Jump(0));
+    }
+
+    let match_fail = out.len();
+    out.push(Instr::MatchFail);
+    let after_match = out.len();
+
+    for j in end_jumps {
+        patch_jump(out, j, after_match);
+    }
+    for (unpack_at, dest_arm) in unpack_fixups {
+        let target = match dest_arm {
+            Some(ai) => start_of_arm[ai],
+            None => match_fail,
+        };
+        patch_match_unpack(out, unpack_at, target);
+    }
+
     Ok(())
 }
 
@@ -527,11 +913,13 @@ pub fn compile_module(module: &Module) -> Result<Program, CompileError> {
         .map(|(i, f)| (f.name.clone(), i))
         .collect();
 
+    let variants = collect_variants(module);
+
     let mut chunks = Vec::with_capacity(fns.len());
     let fn_names: Vec<String> = fns.iter().map(|f| f.name.clone()).collect();
 
     for f in &fns {
-        let mut ctx = CompileCtx::new(&fn_idx, &f.params);
+        let mut ctx = CompileCtx::new(&fn_idx, &variants, &f.params);
         let mut strings = Vec::new();
         let mut code = Vec::new();
         compile_expr(&f.body, &mut ctx, &mut strings, &mut code)?;

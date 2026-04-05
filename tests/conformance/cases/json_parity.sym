@@ -1,0 +1,15 @@
+# 树解释器与 --vm：JSON 内建 + Option（依赖默认 prelude）
+fn main() -> String =
+  concat(
+    match json_extract("{\"a\":\"hi\"}", "a")
+    | None => "E1"
+    | Some(value: s) => s
+    end,
+    concat("|",
+      match json_value("{\"n\":42}", "n")
+      | None => "E2"
+      | Some(value: s) => s
+      end
+    )
+  )
+end

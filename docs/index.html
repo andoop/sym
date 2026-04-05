@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sym — a small language for clear, tool-friendly programs</title>
-  <meta name="description" content="Sym: statically typed interpreted language with ADTs, multi-file modules, tree interpreter and optional bytecode VM. CLI sym, written in Rust." />
+  <meta name="description" content="Sym: statically typed interpreted language with ADTs, multi-file modules, tree interpreter and optional stack bytecode VM (sym run --vm). CLI sym, written in Rust." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -29,8 +29,9 @@
       <div class="wrap">
         <h1>A small language built for clarity</h1>
         <p class="tagline">
-          Static types, algebraic data types, and a <strong>sym</strong> CLI — tree interpreter today,
-          optional bytecode VM for a compileable subset. Designed to be easy for humans, editors, and models to reason about.
+          Static types, algebraic data types, and a <strong>sym</strong> CLI — tree interpreter by default,
+          optional stack bytecode VM (<code>sym run --vm</code>) aligned with it for programs the compiler accepts.
+          Designed to be easy for humans, editors, and models to reason about.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="https://github.com/andoop/sym">View on GitHub</a>

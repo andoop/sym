@@ -34,8 +34,8 @@ sym check examples/hello.sym
 # 解析、检查并运行入口函数 main（无参数）
 sym run examples/hello.sym
 
-# 栈式字节码 VM（仅支持语言子集；不支持的程序会报错并需去掉 `--vm`）
-sym run --vm examples/vm_fib.sym
+# 栈式字节码 VM（与树解释器语义对齐；个别构造未下沉时会报 `VM: …` 编译错误）
+sym run --vm examples/option.sym
 
 # 多文件示例
 sym run examples/call_lib.sym
@@ -54,7 +54,7 @@ sym check --message-format json bad.sym
 
 37 步交付索引与分组文档：[docs/industrial/CHECKLIST.md](docs/industrial/CHECKLIST.md)。
 
-**规范与文档**：语言初稿 [docs/spec/LANGUAGE.md](docs/spec/LANGUAGE.md)；操作语义 [docs/spec/SEMANTICS.md](docs/spec/SEMANTICS.md)；语法全览与蓝图 [docs/spec/SYNTAX.md](docs/spec/SYNTAX.md)；设计理念 [docs/spec/SOUL.md](docs/spec/SOUL.md)；VM 子集 [docs/spec/VM_SUBSET.md](docs/spec/VM_SUBSET.md)；VM↔树对照 [docs/spec/VM_TREE_PARITY.md](docs/spec/VM_TREE_PARITY.md)。示例索引见 [examples/README.md](examples/README.md)。
+**规范与文档**：语言初稿 [docs/spec/LANGUAGE.md](docs/spec/LANGUAGE.md)；操作语义 [docs/spec/SEMANTICS.md](docs/spec/SEMANTICS.md)；语法全览与蓝图 [docs/spec/SYNTAX.md](docs/spec/SYNTAX.md)；设计理念 [docs/spec/SOUL.md](docs/spec/SOUL.md)；字节码 VM 说明 [docs/spec/VM_SUBSET.md](docs/spec/VM_SUBSET.md)；VM↔树对照 [docs/spec/VM_TREE_PARITY.md](docs/spec/VM_TREE_PARITY.md)。示例索引见 [examples/README.md](examples/README.md)。
 
 ## 验证
 
@@ -79,7 +79,7 @@ cargo run -p symc -- run examples/option.sym
 - **循环**：`while cond do body end`；`&&` / `||` **短路**。
 - **运算**：整数 `+ - * / %`（`%` 为欧几里得余数，与 Rust `rem_euclid` 一致）；`String` 可比较 `== != < <= > >=`（UTF-8 字节序与 Unicode 标量字典序一致）。
 - **内建**：`println` / `eprintln`、`exit`、`concat`、字符串与文件、HTTP、`json_*` 等（不可再用 `fn` 重名）；详见 [docs/industrial/builtins-contracts.md](docs/industrial/builtins-contracts.md)。
-- **VM 子集**：`sym run --vm`；与树解释器对照见 [docs/spec/VM_TREE_PARITY.md](docs/spec/VM_TREE_PARITY.md)。
+- **字节码 VM**：`sym run --vm`；与树解释器对照见 [docs/spec/VM_TREE_PARITY.md](docs/spec/VM_TREE_PARITY.md)。
 - **多文件**：`import` 解析与同目录 / `--stdlib` 回退。
 
 更完整的语义与示例见 `examples/` 与 `stdlib/prelude.sym`。**`examples/library_mgmt.sym`**：基于 `List[Book]` 的简易交互图书管理（内存数据）。

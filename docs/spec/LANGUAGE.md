@@ -47,9 +47,9 @@
 
 ## 7. 字节码 VM（`sym run --vm`）
 
-- **子集**：不支持或未实现的语言特性会 **编译期** 报错，需用树解释器运行；清单见 [VM_SUBSET.md](./VM_SUBSET.md)。
-- **语义**：与树解释器在支持的子集上应一致；参见 `crates/symc/src/lib.rs` 中 `vm_parity_*` 测试。
-- **细节**：指令与内建映射见 `bytecode.rs`、`vm.rs`。
+- **可编译范围**：VM 已覆盖常用语言构造（含 `match`、枚举构造、`FnRef` 间接调用及 [builtins-contracts.md](../industrial/builtins-contracts.md) 中标注的宿主内建等）。**尚未下沉** 的语法或内建会在 **编译期** 报 `VmCompile`（消息前缀多为 `VM:`），此时需用树解释器 `sym run`；能力表与指令说明见 [VM_SUBSET.md](./VM_SUBSET.md)。
+- **语义**：在可编译程序上与树解释器对齐；回归见 `crates/symc/src/lib.rs` 中 `vm_parity_*`、`tests/conformance/` 与 `scripts/conformance_vm_tree.sh`。
+- **实现**：`bytecode.rs`、`vm.rs`；宿主内建共享逻辑见 `interp.rs` 中 `host_builtin_apply` 等。
 
 ## 8. 拼接源与诊断
 

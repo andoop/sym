@@ -53,7 +53,7 @@ enum Cmd {
     Run {
         #[arg(value_name = "FILE")]
         path: PathBuf,
-        /// Run via stack bytecode (subset of Sym; fails on unsupported constructs)
+        /// Run via stack bytecode VM (same semantics as the tree interpreter when the program is VM-eligible)
         #[arg(long)]
         vm: bool,
     },

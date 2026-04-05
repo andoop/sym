@@ -19,7 +19,7 @@ labels: enhancement
 
 ## Impact
 
-<!-- Language semantics? Breaking change? VM subset? -->
+<!-- Language semantics? Breaking change? Bytecode VM / parity? -->
 
 ## Links
 

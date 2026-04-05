@@ -8,6 +8,7 @@ use std::time::Duration;
 use crate::ast::{
     BinOp, Expr, ExprKind, FnDef, Item, Module, Pattern, PatternField, Stmt, TypeExpr, UnaryOp,
 };
+use crate::bytecode::HostBuiltin;
 use crate::span::Span;
 
 /// Upper bound on `bind` calls for this pattern (used to pre-size the match arm frame map).
@@ -23,6 +24,298 @@ fn pattern_bind_count(pat: &Pattern) -> usize {
             })
             .sum(),
     }
+}
+
+/// `parse_int` result for the bytecode VM (mirrors `parse_int` builtin).
+pub(crate) fn value_parse_int_string(s: &str) -> Value {
+    match s.trim().parse::<i64>() {
+        Ok(n) => value_option_some_int(n),
+        Err(_) => value_option_none_int(),
+    }
+}
+
+#[inline]
+pub(crate) fn value_option_none_int() -> Value {
+    Value::Enum {
+        typ: "Option".into(),
+        variant: "None".into(),
+        fields: vec![],
+    }
+}
+
+#[inline]
+pub(crate) fn value_option_some_int(n: i64) -> Value {
+    Value::Enum {
+        typ: "Option".into(),
+        variant: "Some".into(),
+        fields: vec![("value".into(), Value::Int(n))],
+    }
+}
+
+#[inline]
+pub(crate) fn value_option_none_string() -> Value {
+    value_option_none_int()
+}
+
+#[inline]
+pub(crate) fn value_option_some_string(s: String) -> Value {
+    Value::Enum {
+        typ: "Option".into(),
+        variant: "Some".into(),
+        fields: vec![("value".into(), Value::String(s))],
+    }
+}
+
+/// Run a host builtin for the stack VM (`args` = left-to-right parameters).
+pub(crate) fn host_builtin_apply(b: HostBuiltin, args: &[Value]) -> Result<Value, String> {
+    match b {
+        HostBuiltin::ReadLine => {
+            if !args.is_empty() {
+                return Err("`read_line` expects no arguments".into());
+            }
+            let mut line = String::new();
+            let stdin = std::io::stdin();
+            let mut lock = stdin.lock();
+            lock.read_line(&mut line)
+                .map_err(|_| "read_line: io error".to_string())?;
+            if line.ends_with('\n') {
+                line.pop();
+                if line.ends_with('\r') {
+                    line.pop();
+                }
+            }
+            Ok(Value::String(line))
+        }
+        HostBuiltin::EnvGet => {
+            let Value::String(name) = &args[0] else {
+                return Err("`env_get` expects String".into());
+            };
+            Ok(match std::env::var(name) {
+                Ok(s) => value_option_some_string(s),
+                Err(_) => value_option_none_string(),
+            })
+        }
+        HostBuiltin::ReadFile => {
+            let Value::String(path) = &args[0] else {
+                return Err("`read_file` expects String".into());
+            };
+            Ok(match std::fs::read_to_string(path) {
+                Ok(s) => value_option_some_string(s),
+                Err(_) => value_option_none_string(),
+            })
+        }
+        HostBuiltin::WriteFile => {
+            let (Value::String(path), Value::String(content)) = (&args[0], &args[1]) else {
+                return Err("`write_file` expects (String, String)".into());
+            };
+            std::fs::write(path, content.as_bytes())
+                .map_err(|e| format!("write_file: {e}"))?;
+            Ok(Value::Unit)
+        }
+        HostBuiltin::WriteFileOk => {
+            let (Value::String(path), Value::String(content)) = (&args[0], &args[1]) else {
+                return Err("`write_file_ok` expects (String, String)".into());
+            };
+            let ok = std::fs::write(path, content.as_bytes()).is_ok();
+            Ok(Value::Bool(ok))
+        }
+        HostBuiltin::ListDir => {
+            let Value::String(path) = &args[0] else {
+                return Err("`list_dir` expects String".into());
+            };
+            Ok(match std::fs::read_dir(path) {
+                Ok(rd) => {
+                    let mut names: Vec<String> = rd
+                        .filter_map(|e| e.ok())
+                        .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+                        .filter_map(|e| {
+                            let n = e.file_name().to_string_lossy().into_owned();
+                            let is_dir = e.file_type().map(|t| t.is_dir()).ok()?;
+                            Some(if is_dir { format!("{n}/") } else { n })
+                        })
+                        .collect();
+                    names.sort();
+                    value_option_some_string(names.join("\n"))
+                }
+                Err(_) => value_option_none_string(),
+            })
+        }
+        HostBuiltin::GlobFiles => {
+            let (Value::String(base), Value::String(pattern)) = (&args[0], &args[1]) else {
+                return Err("`glob_files` expects (String, String)".into());
+            };
+            let path_pattern = std::path::Path::new(base).join(pattern);
+            let pat = path_pattern.to_string_lossy().replace('\\', "/");
+            Ok(match glob::glob(&pat) {
+                Ok(paths) => {
+                    let mut acc: Vec<String> = paths
+                        .flatten()
+                        .map(|p| p.to_string_lossy().replace('\\', "/"))
+                        .collect();
+                    acc.sort();
+                    value_option_some_string(acc.join("\n"))
+                }
+                Err(_) => value_option_none_string(),
+            })
+        }
+        HostBuiltin::ShellExec => {
+            let (Value::String(cwd), Value::String(cmd)) = (&args[0], &args[1]) else {
+                return Err("`shell_exec` expects (cwd: String, command: String)".into());
+            };
+            Ok(shell_exec(cwd, cmd))
+        }
+        HostBuiltin::Trim => {
+            let Value::String(s) = &args[0] else {
+                return Err("`trim` expects String".into());
+            };
+            Ok(Value::String(s.trim().to_string()))
+        }
+        HostBuiltin::StartsWith => {
+            let (Value::String(s), Value::String(pfx)) = (&args[0], &args[1]) else {
+                return Err("`starts_with` expects (String, String)".into());
+            };
+            Ok(Value::Bool(s.starts_with(pfx.as_str())))
+        }
+        HostBuiltin::Substring => {
+            let (Value::String(text), Value::Int(start), Value::Int(len)) =
+                (&args[0], &args[1], &args[2])
+            else {
+                return Err("`substring` expects (String, Int, Int)".into());
+            };
+            let start = (*start).max(0) as usize;
+            let it = text.chars().skip(start);
+            let out: String = if *len < 0 {
+                it.collect()
+            } else {
+                it.take((*len).max(0) as usize).collect()
+            };
+            Ok(Value::String(out))
+        }
+        HostBuiltin::IndexOf => {
+            let (Value::String(hay), Value::String(needle)) = (&args[0], &args[1]) else {
+                return Err("`index_of` expects (String, String)".into());
+            };
+            Ok(Value::Int(index_of_chars(hay, needle)))
+        }
+        HostBuiltin::HttpPost => {
+            let (Value::String(url), Value::String(headers), Value::String(body)) =
+                (&args[0], &args[1], &args[2])
+            else {
+                return Err("`http_post` expects (String, String, String)".into());
+            };
+            Ok(http_post(url, headers, body))
+        }
+        HostBuiltin::StdoutPrint => {
+            let Value::String(s) = &args[0] else {
+                return Err("`stdout_print` expects String".into());
+            };
+            print!("{s}");
+            let _ = std::io::stdout().flush();
+            Ok(Value::Unit)
+        }
+        HostBuiltin::JsonString => {
+            let Value::String(s) = &args[0] else {
+                return Err("`json_string` expects String".into());
+            };
+            Ok(Value::String(json_string_escape(s)))
+        }
+        HostBuiltin::JsonExtract => {
+            let (Value::String(json), Value::String(path)) = (&args[0], &args[1]) else {
+                return Err("`json_extract` expects (String, String)".into());
+            };
+            Ok(match json_extract_path(json, path) {
+                Some(s) => value_option_some_string(s),
+                None => value_option_none_string(),
+            })
+        }
+        HostBuiltin::JsonValue => {
+            let (Value::String(json), Value::String(path)) = (&args[0], &args[1]) else {
+                return Err("`json_value` expects (String, String)".into());
+            };
+            Ok(match json_value_path(json, path) {
+                Some(s) => value_option_some_string(s),
+                None => value_option_none_string(),
+            })
+        }
+        HostBuiltin::HttpPostSseFold => Err(
+            "internal: HttpPostSseFold must be handled by the VM with nested calls".into(),
+        ),
+    }
+}
+
+pub(crate) fn http_post_sse_fold_with_reducer(
+    url: &str,
+    headers: &str,
+    body: &str,
+    state0: &str,
+    mut reduce: impl FnMut(String, String) -> Result<String, String>,
+) -> Result<Value, String> {
+    let agent = sym_http_agent();
+    let mut req = agent.post(url);
+    for line in headers.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((k, v)) = line.split_once(':') else {
+            continue;
+        };
+        let k = k.trim();
+        let v = v.trim();
+        if k.is_empty() {
+            continue;
+        }
+        req = req.set(k, v);
+    }
+    let resp = match req.send_string(body) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{e}");
+            return Ok(value_option_none_string());
+        }
+    };
+    let status = resp.status();
+    if !(200..300).contains(&status) {
+        return match resp.into_string() {
+            Ok(t) => Ok(value_option_some_string(t)),
+            Err(e) => {
+                eprintln!("{e}");
+                Ok(value_option_none_string())
+            }
+        };
+    }
+    let ct = resp.header("content-type").unwrap_or("").to_lowercase();
+    if !ct.contains("event-stream") && !ct.contains("text/event-stream") {
+        return match resp.into_string() {
+            Ok(t) => Ok(value_option_some_string(t)),
+            Err(e) => {
+                eprintln!("{e}");
+                Ok(value_option_none_string())
+            }
+        };
+    }
+    let reader = std::io::BufReader::new(resp.into_reader());
+    let mut state = state0.to_string();
+    for line_result in reader.lines() {
+        let line = line_result.map_err(|e| format!("SSE read: {e}"))?;
+        let line = line.trim_end();
+        if line.is_empty() || line.starts_with(':') {
+            continue;
+        }
+        let payload = if let Some(rest) = line.strip_prefix("data:") {
+            rest.trim()
+        } else {
+            continue;
+        };
+        if payload == "[DONE]" {
+            break;
+        }
+        if payload.is_empty() {
+            continue;
+        }
+        state = reduce(state, payload.to_string())?;
+    }
+    Ok(value_option_some_string(state))
 }
 
 #[derive(Debug, Clone)]
@@ -105,38 +398,6 @@ pub struct Interpreter<'a> {
 }
 
 impl<'a> Interpreter<'a> {
-    fn option_none_int() -> Value {
-        Value::Enum {
-            typ: "Option".into(),
-            variant: "None".into(),
-            fields: vec![],
-        }
-    }
-
-    fn option_some_int(n: i64) -> Value {
-        Value::Enum {
-            typ: "Option".into(),
-            variant: "Some".into(),
-            fields: vec![("value".into(), Value::Int(n))],
-        }
-    }
-
-    fn option_none_string() -> Value {
-        Value::Enum {
-            typ: "Option".into(),
-            variant: "None".into(),
-            fields: vec![],
-        }
-    }
-
-    fn option_some_string(s: String) -> Value {
-        Value::Enum {
-            typ: "Option".into(),
-            variant: "Some".into(),
-            fields: vec![("value".into(), Value::String(s))],
-        }
-    }
-
     fn write_print_args(
         &self,
         out: &mut impl Write,
@@ -479,8 +740,8 @@ impl<'a> Interpreter<'a> {
                                 });
                             };
                             return Ok(match s.trim().parse::<i64>() {
-                                Ok(n) => Self::option_some_int(n),
-                                Err(_) => Self::option_none_int(),
+                                Ok(n) => value_option_some_int(n),
+                                Err(_) => value_option_none_int(),
                             });
                         }
                         "env_get" => {
@@ -492,8 +753,8 @@ impl<'a> Interpreter<'a> {
                                 });
                             };
                             return Ok(match std::env::var(&name) {
-                                Ok(s) => Self::option_some_string(s),
-                                Err(_) => Self::option_none_string(),
+                                Ok(s) => value_option_some_string(s),
+                                Err(_) => value_option_none_string(),
                             });
                         }
                         "read_file" => {
@@ -505,8 +766,8 @@ impl<'a> Interpreter<'a> {
                                 });
                             };
                             return Ok(match std::fs::read_to_string(&path) {
-                                Ok(s) => Self::option_some_string(s),
-                                Err(_) => Self::option_none_string(),
+                                Ok(s) => value_option_some_string(s),
+                                Err(_) => value_option_none_string(),
                             });
                         }
                         "write_file" => {
@@ -560,9 +821,9 @@ impl<'a> Interpreter<'a> {
                                         })
                                         .collect();
                                     names.sort();
-                                    Self::option_some_string(names.join("\n"))
+                                    value_option_some_string(names.join("\n"))
                                 }
-                                Err(_) => Self::option_none_string(),
+                                Err(_) => value_option_none_string(),
                             });
                         }
                         "glob_files" => {
@@ -583,9 +844,9 @@ impl<'a> Interpreter<'a> {
                                         .map(|p| p.to_string_lossy().replace('\\', "/"))
                                         .collect();
                                     acc.sort();
-                                    Self::option_some_string(acc.join("\n"))
+                                    value_option_some_string(acc.join("\n"))
                                 }
-                                Err(_) => Self::option_none_string(),
+                                Err(_) => value_option_none_string(),
                             });
                         }
                         "shell_exec" => {
@@ -723,8 +984,8 @@ impl<'a> Interpreter<'a> {
                                 });
                             };
                             return Ok(match json_extract_path(&json, &path) {
-                                Some(s) => Interpreter::option_some_string(s),
-                                None => Interpreter::option_none_string(),
+                                Some(s) => value_option_some_string(s),
+                                None => value_option_none_string(),
                             });
                         }
                         "json_value" => {
@@ -737,8 +998,8 @@ impl<'a> Interpreter<'a> {
                                 });
                             };
                             return Ok(match json_value_path(&json, &path) {
-                                Some(s) => Interpreter::option_some_string(s),
-                                None => Interpreter::option_none_string(),
+                                Some(s) => value_option_some_string(s),
+                                None => value_option_none_string(),
                             });
                         }
                         _ => {}
@@ -824,89 +1085,20 @@ impl<'a> Interpreter<'a> {
         env: &mut EvalEnv,
         span: Span,
     ) -> Result<Value, RuntimeError> {
-        let agent = sym_http_agent();
-        let mut req = agent.post(url);
-        for line in headers.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            let Some((k, v)) = line.split_once(':') else {
-                continue;
-            };
-            let k = k.trim();
-            let v = v.trim();
-            if k.is_empty() {
-                continue;
-            }
-            req = req.set(k, v);
-        }
-        let resp = match req.send_string(body) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("{e}");
-                return Ok(Self::option_none_string());
-            }
-        };
-        let status = resp.status();
-        if !(200..300).contains(&status) {
-            return match resp.into_string() {
-                Ok(t) => Ok(Self::option_some_string(t)),
-                Err(e) => {
-                    eprintln!("{e}");
-                    Ok(Self::option_none_string())
-                }
-            };
-        }
-        let ct = resp.header("content-type").unwrap_or("").to_lowercase();
-        if !ct.contains("event-stream") && !ct.contains("text/event-stream") {
-            return match resp.into_string() {
-                Ok(t) => Ok(Self::option_some_string(t)),
-                Err(e) => {
-                    eprintln!("{e}");
-                    Ok(Self::option_none_string())
-                }
-            };
-        }
-        let reader = std::io::BufReader::new(resp.into_reader());
-        let mut state = state0.to_string();
-        for line_result in reader.lines() {
-            let line = line_result.map_err(|e| RuntimeError {
-                span,
-                message: format!("SSE read: {e}"),
-            })?;
-            let line = line.trim_end();
-            if line.is_empty() || line.starts_with(':') {
-                continue;
-            }
-            let payload = if let Some(rest) = line.strip_prefix("data:") {
-                rest.trim()
-            } else {
-                continue;
-            };
-            if payload == "[DONE]" {
-                break;
-            }
-            if payload.is_empty() {
-                continue;
-            }
-            let new_state = match self.call_named_with_env(
-                reducer_name,
-                vec![Value::String(state), Value::String(payload.to_string())],
+        let rname = reducer_name.to_string();
+        http_post_sse_fold_with_reducer(url, headers, body, state0, |state, payload| {
+            match self.call_named_with_env(
+                &rname,
+                vec![Value::String(state), Value::String(payload)],
                 env,
                 span,
-            )? {
-                Value::String(s) => s,
-                _ => {
-                    return Err(RuntimeError {
-                        span,
-                        message: "SSE fold reducer must return String".into(),
-                    });
-                }
-            };
-            state = new_state;
-        }
-        Ok(Self::option_some_string(state))
+            ) {
+                Ok(Value::String(s)) => Ok(s),
+                Ok(_) => Err("SSE fold reducer must return String".into()),
+                Err(e) => Err(e.message),
+            }
+        })
+        .map_err(|msg| RuntimeError { span, message: msg })
     }
 
     fn bind_pattern(
@@ -1194,13 +1386,13 @@ fn shell_exec(cwd: &str, command: &str) -> Value {
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
     {
-        return Interpreter::option_some_string(
+        return value_option_some_string(
             "[exit -1]\n--- stderr ---\nshell disabled: unset CCODE_DISABLE_SHELL or set it to 0 to allow shell_exec\n".into(),
         );
     }
     let cmd = command.trim();
     if cmd.is_empty() {
-        return Interpreter::option_some_string(
+        return value_option_some_string(
             "[exit -1]\n--- stderr ---\nempty command\n".into(),
         );
     }
@@ -1229,7 +1421,7 @@ fn shell_exec(cwd: &str, command: &str) -> Value {
         Ok(o) => o,
         Err(e) => {
             eprintln!("{e}");
-            return Interpreter::option_none_string();
+            return value_option_none_string();
         }
     };
     let code = output.status.code().unwrap_or(-1);
@@ -1272,7 +1464,7 @@ fn shell_exec(cwd: &str, command: &str) -> Value {
     if stdout.is_empty() && stderr.is_empty() {
         s.push_str("(no output)\n");
     }
-    Interpreter::option_some_string(s)
+    value_option_some_string(s)
 }
 
 /// 与 curl 类似：识别常见代理环境变量（ureq 默认 Agent 不会自动读它们）。
@@ -1325,15 +1517,15 @@ fn http_post(url: &str, headers: &str, body: &str) -> Value {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{e}");
-            return Interpreter::option_none_string();
+            return value_option_none_string();
         }
     };
     // 非 2xx 仍返回响应体，便于上层解析 JSON 错误字段。
     match resp.into_string() {
-        Ok(t) => Interpreter::option_some_string(t),
+        Ok(t) => value_option_some_string(t),
         Err(e) => {
             eprintln!("{e}");
-            Interpreter::option_none_string()
+            value_option_none_string()
         }
     }
 }

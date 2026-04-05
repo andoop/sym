@@ -39,6 +39,7 @@
 - 类型检查与解析的 `Span` 相对于 **拼接后** 缓冲区。
 - JSON 诊断中的 **`logical_file` / `logical_line` / `logical_column`**：在含 `# sym:file` 的缓冲区内，表示该错误位置在 **对应片段正文**（标记行之后、下一文件标记之前）内的路径与行列；**不等于** 磁盘上原始 `.sym` 行号（因剔除 `import`/`module` 行与 `trim` 等），后续可增强为精确映射。
 
-## 7. VM 子集
+## 7. 字节码 VM（`sym run --vm`）
 
-- 仅保证上述语义在 **可编译** 的子集上由字节码 VM 复现；未支持构造在编译期拒绝。
+- 在 **能通过字节码编译** 的程序上，VM 应复现本节所述与树解释器一致的操作语义（含短路、`while`、调用约定等）；未支持构造在 **编译期** 拒绝（`VmCompile`）。
+- 功能边界与树路径对照见 [VM_TREE_PARITY.md](./VM_TREE_PARITY.md)；内建与指令映射见 [VM_SUBSET.md](./VM_SUBSET.md)、[builtins-contracts.md](../industrial/builtins-contracts.md)。
