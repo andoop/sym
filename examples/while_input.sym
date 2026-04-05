@@ -1,0 +1,16 @@
+# 需 stdin：反复读行直到输入与 "ok" 相等（含引号内即字面 ok）。
+# 运行：sym run examples/while_input.sym
+
+fn main() -> Unit =
+  do
+    println("输入 ok 结束：");
+    while read_line() != "ok" do
+      do
+        println("再试一次");
+        ()
+      end
+    end;
+    println("完成");
+    ()
+  end
+end

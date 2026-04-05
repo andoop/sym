@@ -1,0 +1,16 @@
+# 依赖 prelude 中的 `List[T]`。计算 Cons 链长度并打印。
+
+fn len(xs: List[Int]) -> Int =
+  match xs
+  | Nil => 0
+  | Cons(head: _, tail: rest) => 1 + len(rest)
+  end
+end
+
+fn main() -> Unit =
+  do
+    let xs = List[Int].Cons(1, List[Int].Cons(2, List[Int].Cons(3, List[Int].Nil)));
+    println(len(xs));
+    ()
+  end
+end

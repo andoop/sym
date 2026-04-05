@@ -1,0 +1,156 @@
+# ccode / agent：OpenAI 兼容 /chat/completions 路径（DeepSeek 等），工具轮询对齐 Anthropic 侧串行语义。
+
+import api
+import messages
+import tools
+import stream_openai
+
+fn openai_tool_call_id_at(resp: String, i: Int) -> Option[String] =
+  json_extract(
+    resp,
+    concat(
+      "choices.0.message.tool_calls.",
+      concat(string_from_int(i), ".id")
+    )
+  )
+end
+
+fn count_openai_tool_calls_from(resp: String, i: Int) -> Int =
+  match openai_tool_call_id_at(resp, i)
+  | None => i
+  | Some(value: _) => count_openai_tool_calls_from(resp, i + 1)
+  end
+end
+
+fn openai_tool_call_prefix(i: Int) -> String =
+  concat("choices.0.message.tool_calls.", string_from_int(i))
+end
+
+fn collect_openai_tool_messages(
+  resp: String,
+  i: Int,
+  n: Int,
+  acc: String,
+  need_comma: Bool
+) -> String =
+  if i >= n then
+    acc
+  else
+    match openai_tool_call_id_at(resp, i)
+    | None => acc
+    | Some(value: tid) =>
+        do
+          let p = openai_tool_call_prefix(i);
+          let nm_m = json_extract(resp, concat(p, ".function.name"));
+          let arg_m = json_extract(resp, concat(p, ".function.arguments"));
+          let nm = match nm_m
+          | None => "__unknown__"
+          | Some(value: x) => x
+          end;
+          let args = match arg_m
+          | None => "{}"
+          | Some(value: a) => a
+          end;
+          let body = dispatch_tool_input(nm, args);
+          let blk = openai_tool_result_message(tid, body);
+          let acc2 = if need_comma then concat(acc, concat(",", blk)) else concat(acc, blk);
+          collect_openai_tool_messages(resp, i + 1, n, acc2, true)
+        end
+    end
+end
+
+fn openai_run_tool_round_and_continue(
+  resp: String,
+  msgs_inner: String,
+  turns_left: Int,
+  api_key: String,
+  model: String
+) -> Unit =
+  do
+    let n = count_openai_tool_calls_from(resp, 0);
+    let tool_msgs = collect_openai_tool_messages(resp, 0, n, "", false);
+    let asst = openai_assistant_message_from_response(resp);
+    let inner2 = concat(
+      concat(msgs_inner, ","),
+      concat(asst, concat(",", tool_msgs))
+    );
+    agent_loop_openai(inner2, turns_left - 1, api_key, model)
+  end
+end
+
+fn handle_openai_ok_response(
+  resp: String,
+  msgs_inner: String,
+  turns_left: Int,
+  api_key: String,
+  model: String
+) -> Unit =
+  match json_extract(resp, "choices.0.finish_reason")
+  | None =>
+      eprintln("OpenAI 兼容响应缺少 choices.0.finish_reason")
+  | Some(value: fr) =>
+      if fr == "stop" then
+        match json_extract(resp, "ccode_streamed")
+        | Some(value: sv) =>
+            if sv == "1" then
+              ()
+            else
+              match json_extract(resp, "choices.0.message.content")
+              | None => ()
+              | Some(value: txt) => println(concat("[助手] ", txt))
+              end
+        | None =>
+            match json_extract(resp, "choices.0.message.content")
+            | None => ()
+            | Some(value: txt) => println(concat("[助手] ", txt))
+            end
+      end
+      else if fr == "tool_calls" then
+        openai_run_tool_round_and_continue(
+          resp,
+          msgs_inner,
+          turns_left,
+          api_key,
+          model
+        )
+      else
+        eprintln(concat("OpenAI finish_reason: ", fr))
+  end
+end
+
+fn agent_loop_openai(
+  msgs_inner: String,
+  turns_left: Int,
+  api_key: String,
+  model: String
+) -> Unit =
+  if turns_left <= 0 then
+    eprintln("达到最大工具往返轮次，停止。")
+  else
+    do
+      match http_post_sse_fold(
+        openai_chat_url(),
+        openai_messages_headers(api_key),
+        build_openai_body_stream(model, msgs_inner),
+        openai_state0(),
+        openai_sse_reduce
+      )
+      | None =>
+          eprintln("HTTP 失败或空响应体。")
+      | Some(value: st) =>
+          do
+            let resp = openai_sse_finalize(st);
+            if is_openai_http_error(resp) then
+              print_openai_error(resp)
+            else
+              handle_openai_ok_response(
+                resp,
+                msgs_inner,
+                turns_left,
+                api_key,
+                model
+              )
+          end
+      end
+    end
+end

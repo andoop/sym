@@ -1,0 +1,12 @@
+# Sym 标准库：默认在 `sym run` / `sym check` 时置于程序最前（可用 `--no-prelude` 关闭）。
+# 拼接报错时，可在源码里搜索 `# sym:file` 定位来自哪个文件。
+
+type Option[T] =
+| None
+| Some(value: T)
+end
+
+type List[T] =
+| Nil
+| Cons(head: T, tail: List[T])
+end

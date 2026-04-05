@@ -1,0 +1,175 @@
+# Sym / ccode：Anthropic Messages 或 OpenAI 兼容（DeepSeek）双路径。
+# 入口：在项目根 sym run examples/ccode/main.sym
+#
+# Anthropic：ANTHROPIC_API_KEY；可选 ANTHROPIC_BASE_URL（对齐 Claude Code）、ANTHROPIC_MODEL。
+# OpenAI 兼容：OPENAI_API_KEY 或 DEEPSEEK_API_KEY；OPENAI_BASE_URL 或 DEEPSEEK_BASE_URL；
+#   OPENAI_MODEL 或 DEEPSEEK_MODEL（默认 deepseek-chat）。同时有 Anthropic key 时默认走 Anthropic；
+#   设 CCODE_USE_OPENAI=1 可强制 OpenAI 线。
+# 若终端里 curl 能访问 API 而 sym 报「HTTP 失败」，多半是代理：请 export HTTPS_PROXY（或 ALL_PROXY），
+# 与系统/Clash 一致，例如 http://127.0.0.1:7890（sym 的 http_post 会读取这些变量）。
+
+import agent.loop
+import agent.openai
+import agent.config
+import agent.api
+
+fn ccode_force_openai() -> Bool =
+  match env_get("CCODE_USE_OPENAI")
+  | None => false
+  | Some(value: v) =>
+      trim(v) == "1" || trim(v) == "true" || trim(v) == "yes"
+  end
+end
+
+fn deepseek_key_only() -> Option[String] =
+  match env_get("DEEPSEEK_API_KEY")
+  | None => Option[String].None
+  | Some(value: k) =>
+      if trim(k) == "" then Option[String].None else Option[String].Some(trim(k))
+  end
+end
+
+fn resolved_openai_api_key() -> Option[String] =
+  match env_get("OPENAI_API_KEY")
+  | Some(value: k) =>
+      if trim(k) == "" then
+        deepseek_key_only()
+      else
+        Option[String].Some(trim(k))
+  | None => deepseek_key_only()
+  end
+end
+
+fn has_resolved_openai_key() -> Bool =
+  match resolved_openai_api_key()
+  | None => false
+  | Some(value: _) => true
+  end
+end
+
+fn use_openai_transport() -> Bool =
+  if ccode_force_openai() then
+    true
+  else
+    match env_get("ANTHROPIC_API_KEY")
+    | Some(value: k) =>
+        if trim(k) == "" then has_resolved_openai_key() else false
+    | None => has_resolved_openai_key()
+    end
+end
+
+fn openai_model_from_deepseek_env() -> String =
+  match env_get("DEEPSEEK_MODEL")
+  | None => "deepseek-chat"
+  | Some(value: m) =>
+      if trim(m) == "" then "deepseek-chat" else trim(m)
+  end
+end
+
+fn openai_model_resolved() -> String =
+  match env_get("OPENAI_MODEL")
+  | Some(value: m) =>
+      if trim(m) == "" then openai_model_from_deepseek_env() else trim(m)
+  | None => openai_model_from_deepseek_env()
+  end
+end
+
+fn anthropic_model() -> String =
+  match env_get("ANTHROPIC_MODEL")
+  | None => "claude-3-5-haiku-20241022"
+  | Some(value: m) =>
+      if trim(m) == "" then "claude-3-5-haiku-20241022" else trim(m)
+  end
+end
+
+fn run_session_anthropic(api: String, model: String, user_line: String) -> Unit =
+  agent_loop(
+    user_text_message(user_line),
+    default_max_rounds(),
+    api,
+    model,
+    system_prompt()
+  )
+end
+
+fn run_session_openai(api_key: String, model: String, user_line: String) -> Unit =
+  agent_loop_openai(
+    openai_initial_messages_inner(system_prompt(), user_line),
+    default_max_rounds(),
+    api_key,
+    model
+  )
+end
+
+fn main_openai_with_key(key: String) -> Unit =
+  do
+    let model = openai_model_resolved();
+    println("=== Sym ccode / OpenAI 兼容（DeepSeek 等，quit 退出）===");
+    println(concat("Base: ", openai_base_resolved()));
+    println(concat("Model: ", model));
+    while true do
+      do
+        println("");
+        println("（quit 退出）");
+        let line = read_line();
+        if trim(line) == "quit" then exit(0) else ();
+        run_session_openai(key, model, trim(line));
+        ()
+      end
+    end
+  end
+end
+
+fn main_anthropic_with_key(key: String) -> Unit =
+  do
+    let model = anthropic_model();
+    println("=== Sym ccode / Anthropic Messages（quit 退出）===");
+    println(concat("API: ", anthropic_messages_url()));
+    println(concat("Model: ", model));
+    while true do
+      do
+        println("");
+        println("（quit 退出）");
+        let line = read_line();
+        if trim(line) == "quit" then exit(0) else ();
+        run_session_anthropic(key, model, trim(line));
+        ()
+      end
+    end
+  end
+end
+
+fn main() -> Unit =
+  if use_openai_transport() then
+    match resolved_openai_api_key()
+    | None =>
+        do
+          eprintln(
+            "当前走 OpenAI 兼容线，但未设置有效的 OPENAI_API_KEY 或 DEEPSEEK_API_KEY。"
+          );
+          exit(1)
+        end
+    | Some(value: k) => main_openai_with_key(k)
+  end
+  else
+    match env_get("ANTHROPIC_API_KEY")
+    | None =>
+        do
+          eprintln(
+            "未设置 ANTHROPIC_API_KEY，且无 OPENAI_API_KEY / DEEPSEEK_API_KEY。请至少配置其一。"
+          );
+          exit(1)
+        end
+    | Some(value: key) =>
+        do
+          let api = trim(key);
+          if api == "" then
+            do
+              eprintln("ANTHROPIC_API_KEY 为空。");
+              exit(1)
+            end
+          else
+            main_anthropic_with_key(api)
+        end
+    end
+end

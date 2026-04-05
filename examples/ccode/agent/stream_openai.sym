@@ -1,0 +1,281 @@
+# ccode：OpenAI 兼容 /chat/completions SSE（业务在 Sym；最多 4 个 tool_calls 槽位）。
+
+import api
+
+fn openai_g(st: String, field: String) -> String =
+  match json_extract(st, field)
+  | None => ""
+  | Some(value: v) => v
+  end
+end
+
+fn openai_state0() -> String =
+  "{\"fr\":\"\",\"txt\":\"\",\"t0i\":\"\",\"t0n\":\"\",\"t0a\":\"\",\"t1i\":\"\",\"t1n\":\"\",\"t1a\":\"\",\"t2i\":\"\",\"t2n\":\"\",\"t2a\":\"\",\"t3i\":\"\",\"t3n\":\"\",\"t3a\":\"\"}"
+end
+
+fn openai_pack14(
+  fr: String,
+  txt: String,
+  t0i: String,
+  t0n: String,
+  t0a: String,
+  t1i: String,
+  t1n: String,
+  t1a: String,
+  t2i: String,
+  t2n: String,
+  t2a: String,
+  t3i: String,
+  t3n: String,
+  t3a: String
+) -> String =
+  concat(
+    "{\"fr\":",
+    concat(
+      json_string(fr),
+      concat(
+        ",\"txt\":",
+        concat(
+          json_string(txt),
+          concat(
+            ",\"t0i\":",
+            concat(
+              json_string(t0i),
+              concat(
+                ",\"t0n\":",
+                concat(
+                  json_string(t0n),
+                  concat(
+                    ",\"t0a\":",
+                    concat(
+                      json_string(t0a),
+                      concat(
+                        ",\"t1i\":",
+                        concat(
+                          json_string(t1i),
+                          concat(
+                            ",\"t1n\":",
+                            concat(
+                              json_string(t1n),
+                              concat(
+                                ",\"t1a\":",
+                                concat(
+                                  json_string(t1a),
+                                  concat(
+                                    ",\"t2i\":",
+                                    concat(
+                                      json_string(t2i),
+                                      concat(
+                                        ",\"t2n\":",
+                                        concat(
+                                          json_string(t2n),
+                                          concat(
+                                            ",\"t2a\":",
+                                            concat(
+                                              json_string(t2a),
+                                              concat(
+                                                ",\"t3i\":",
+                                                concat(
+                                                  json_string(t3i),
+                                                  concat(
+                                                    ",\"t3n\":",
+                                                    concat(
+                                                      json_string(t3n),
+                                                      concat(
+                                                        ",\"t3a\":",
+                                                        concat(json_string(t3a), "}")
+                                                      )
+                                                    )
+                                                  )
+                                                )
+                                              )
+                                            )
+                                          )
+                                        )
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn openai_tool_path(i: Int, tail: String) -> String =
+  concat(concat("choices.0.delta.tool_calls.", string_from_int(i)), tail)
+end
+
+fn openai_merge_line(state: String, line: String) -> String =
+  do
+    let fr = openai_g(state, "fr");
+    let txt = openai_g(state, "txt");
+    let t0i = openai_g(state, "t0i");
+    let t0n = openai_g(state, "t0n");
+    let t0a = openai_g(state, "t0a");
+    let t1i = openai_g(state, "t1i");
+    let t1n = openai_g(state, "t1n");
+    let t1a = openai_g(state, "t1a");
+    let t2i = openai_g(state, "t2i");
+    let t2n = openai_g(state, "t2n");
+    let t2a = openai_g(state, "t2a");
+    let t3i = openai_g(state, "t3i");
+    let t3n = openai_g(state, "t3n");
+    let t3a = openai_g(state, "t3a");
+    let nfr =
+      match json_extract(line, "choices.0.finish_reason")
+      | None => fr
+      | Some(value: fv) =>
+          if strlen(fv) == 0 then fr else fv
+      end;
+    let ntxt =
+      match json_extract(line, "choices.0.delta.content")
+      | None => txt
+      | Some(value: cv) =>
+          do
+            stdout_print(cv);
+            concat(txt, cv)
+          end
+      end;
+    let n0i =
+      match json_extract(line, openai_tool_path(0, ".id"))
+      | None => t0i
+      | Some(value: x) => concat(t0i, x)
+      end;
+    let n0n =
+      match json_extract(line, openai_tool_path(0, ".function.name"))
+      | None => t0n
+      | Some(value: x) => concat(t0n, x)
+      end;
+    let n0a =
+      match json_extract(line, openai_tool_path(0, ".function.arguments"))
+      | None => t0a
+      | Some(value: x) => concat(t0a, x)
+      end;
+    let n1i =
+      match json_extract(line, openai_tool_path(1, ".id"))
+      | None => t1i
+      | Some(value: x) => concat(t1i, x)
+      end;
+    let n1n =
+      match json_extract(line, openai_tool_path(1, ".function.name"))
+      | None => t1n
+      | Some(value: x) => concat(t1n, x)
+      end;
+    let n1a =
+      match json_extract(line, openai_tool_path(1, ".function.arguments"))
+      | None => t1a
+      | Some(value: x) => concat(t1a, x)
+      end;
+    let n2i =
+      match json_extract(line, openai_tool_path(2, ".id"))
+      | None => t2i
+      | Some(value: x) => concat(t2i, x)
+      end;
+    let n2n =
+      match json_extract(line, openai_tool_path(2, ".function.name"))
+      | None => t2n
+      | Some(value: x) => concat(t2n, x)
+      end;
+    let n2a =
+      match json_extract(line, openai_tool_path(2, ".function.arguments"))
+      | None => t2a
+      | Some(value: x) => concat(t2a, x)
+      end;
+    let n3i =
+      match json_extract(line, openai_tool_path(3, ".id"))
+      | None => t3i
+      | Some(value: x) => concat(t3i, x)
+      end;
+    let n3n =
+      match json_extract(line, openai_tool_path(3, ".function.name"))
+      | None => t3n
+      | Some(value: x) => concat(t3n, x)
+      end;
+    let n3a =
+      match json_extract(line, openai_tool_path(3, ".function.arguments"))
+      | None => t3a
+      | Some(value: x) => concat(t3a, x)
+      end;
+    openai_pack14(nfr, ntxt, n0i, n0n, n0a, n1i, n1n, n1a, n2i, n2n, n2a, n3i, n3n, n3a)
+  end
+end
+
+fn openai_sse_reduce(state: String, line: String) -> String =
+  if is_openai_http_error(line) then line else openai_merge_line(state, line)
+end
+
+fn openai_has_tools(st: String) -> Bool =
+  strlen(openai_g(st, "t0i")) > 0
+  || strlen(openai_g(st, "t1i")) > 0
+  || strlen(openai_g(st, "t2i")) > 0
+  || strlen(openai_g(st, "t3i")) > 0
+end
+
+fn openai_one_tool(st: String, i: Int) -> String =
+  let tid = openai_g(st, concat("t", concat(string_from_int(i), "i"))) in
+  if strlen(tid) == 0 then
+    ""
+  else
+    concat(
+      "{\"id\":",
+      concat(
+        json_string(tid),
+        concat(
+          ",\"type\":\"function\",\"function\":{\"name\":",
+          concat(
+            json_string(openai_g(st, concat("t", concat(string_from_int(i), "n")))),
+            concat(
+              ",\"arguments\":",
+              concat(
+                json_string(openai_g(st, concat("t", concat(string_from_int(i), "a")))),
+                "}}"
+              )
+            )
+          )
+        )
+      )
+    )
+end
+
+fn openai_tools_inner(st: String, i: Int, acc: String) -> String =
+  if i >= 4 then
+    acc
+  else
+    do
+      let piece = openai_one_tool(st, i);
+      let acc2 =
+        if strlen(piece) == 0 then acc else if acc == "" then piece else concat(acc, concat(",", piece));
+      openai_tools_inner(st, i + 1, acc2)
+    end
+end
+
+fn openai_sse_finalize(st: String) -> String =
+  match json_extract(st, "choices.0.finish_reason")
+  | Some(_) => st
+  | None =>
+      do
+        let fr0 = openai_g(st, "fr");
+        let txt = openai_g(st, "txt");
+        let fr =
+          if strlen(fr0) > 0 then fr0 else if openai_has_tools(st) then "tool_calls" else "stop";
+        let msg =
+          if openai_has_tools(st) then concat("{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[", concat(openai_tools_inner(st, 0, ""), "]}")) else concat("{\"role\":\"assistant\",\"content\":", concat(json_string(txt), "}"));
+        concat(
+          "{\"ccode_streamed\":\"1\",\"choices\":[{\"index\":0,\"finish_reason\":",
+          concat(json_string(fr), concat(",\"message\":", concat(msg, "}]}")))
+        )
+      end
+  end
+end

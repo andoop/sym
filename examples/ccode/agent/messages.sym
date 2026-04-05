@@ -1,0 +1,72 @@
+# ccode / agent：Messages API 消息 JSON 拼装（assistant 整段 content + 多 tool_result 合并为一条 user）。
+
+fn user_text_message(text: String) -> String =
+  concat(
+    "{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":",
+    concat(json_string(text), "}]}")
+  )
+end
+
+fn assistant_from_response(resp: String) -> String =
+  let blocks = match json_value(resp, "content")
+  | None => "[]"
+  | Some(value: b) => b
+  end in
+  concat("{\"role\":\"assistant\",\"content\":", concat(blocks, "}"))
+end
+
+fn single_tool_result_block(tool_use_id: String, body: String) -> String =
+  concat(
+    "{\"type\":\"tool_result\",\"tool_use_id\":",
+    concat(
+      json_string(tool_use_id),
+      concat(",\"content\":", concat(json_string(body), "}"))
+    )
+  )
+end
+
+fn user_message_tool_results_inner(inner: String) -> String =
+  concat(
+    "{\"role\":\"user\",\"content\":[",
+    concat(inner, "]}")
+  )
+end
+
+fn openai_system_message(system: String) -> String =
+  concat(
+    "{\"role\":\"system\",\"content\":",
+    concat(json_string(system), "}")
+  )
+end
+
+fn openai_user_text_message(text: String) -> String =
+  concat(
+    "{\"role\":\"user\",\"content\":",
+    concat(json_string(text), "}")
+  )
+end
+
+fn openai_initial_messages_inner(system: String, user_text: String) -> String =
+  concat(
+    openai_system_message(system),
+    concat(",", openai_user_text_message(user_text))
+  )
+end
+
+fn openai_assistant_message_from_response(resp: String) -> String =
+  let msg = match json_value(resp, "choices.0.message")
+  | None => "{}"
+  | Some(value: m) => m
+  end in
+  msg
+end
+
+fn openai_tool_result_message(tool_call_id: String, body: String) -> String =
+  concat(
+    "{\"role\":\"tool\",\"tool_call_id\":",
+    concat(
+      json_string(tool_call_id),
+      concat(",\"content\":", concat(json_string(body), "}"))
+    )
+  )
+end

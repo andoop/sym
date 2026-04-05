@@ -1,0 +1,6 @@
+/target/
+**/*.rs.bk
+.DS_Store
+
+# 第三方快照，不参与本仓库版本管理
+claude-code-sourcemap-main/

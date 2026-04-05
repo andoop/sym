@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>简单测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-area {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f5e8;
+            border: 1px solid #c8e6c9;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>简单测试页面</h1>
+        <p>这是一个用于测试的简单网页。</p>
+        
+        <div class="test-area">
+            <h3>JavaScript 测试</h3>
+            <button onclick="showAlert()">显示提示</button>
+            <button onclick="changeText()">改变文本</button>
+            <button onclick="showTime()">显示时间</button>
+            <div id="output" class="result">这里会显示结果</div>
+        </div>
+        
+        <div class="test-area">
+            <h3>CSS 测试</h3>
+            <div id="colorBox" style="width: 100px; height: 100px; background: #4CAF50; margin: 10px 0;"></div>
+            <button onclick="changeColor()">改变颜色</button>
+        </div>
+        
+        <div class="test-area">
+            <h3>页面信息</h3>
+            <p>页面URL: <span id="pageUrl"></span></p>
+            <p>浏览器: <span id="browserInfo"></span></p>
+            <p>屏幕尺寸: <span id="screenSize"></span></p>
+        </div>
+    </div>
+
+    <script>
+        function showAlert() {
+            alert('这是一个JavaScript提示框！');
+            document.getElementById('output').innerHTML = '提示框已显示';
+        }
+        
+        function changeText() {
+            document.getElementById('output').innerHTML = '文本已改变！当前时间：' + new Date().toLocaleTimeString();
+        }
+        
+        function showTime() {
+            const now = new Date();
+            document.getElementById('output').innerHTML = '当前时间：' + now.toLocaleString();
+        }
+        
+        function changeColor() {
+            const colors = ['#4CAF50', '#2196F3', '#f44336', '#FF9800', '#9C27B0'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.getElementById('colorBox').style.backgroundColor = randomColor;
+        }
+        
+        // 页面加载时初始化
+        window.onload = function() {
+            document.getElementById('pageUrl').textContent = window.location.href;
+            document.getElementById('browserInfo').textContent = navigator.userAgent;
+            document.getElementById('screenSize').textContent = window.innerWidth + ' × ' + window.innerHeight;
+        };
+    </script>
+</body>
+</html>

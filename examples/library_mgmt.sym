@@ -1,0 +1,247 @@
+# 图书管理演示：内存中的书目与借阅状态（退出后不保存）。
+# 依赖 prelude 的 Option、List。命令行菜单驱动。
+# 运行：sym run examples/library_mgmt.sym
+
+type Book =
+| Entry(id: Int, title: String, author: String, loan: Option[String])
+end
+
+fn initial_catalog() -> List[Book] =
+  List[Book].Cons(
+    Book.Entry(1, "程序设计方法", "HtDP", Option[String].None),
+    List[Book].Cons(
+      Book.Entry(2, "类型理论入门", "TTFP", Option[String].None),
+      List[Book].Nil
+    )
+  )
+end
+
+fn book_exists(xs: List[Book], id: Int) -> Bool =
+  match xs
+  | Nil => false
+  | Cons(head: h, tail: t) =>
+      match h
+      | Entry(id: i, title: _, author: _, loan: _) =>
+          if i == id then true else book_exists(t, id)
+      end
+  end
+end
+
+fn book_available(xs: List[Book], id: Int) -> Bool =
+  match xs
+  | Nil => false
+  | Cons(head: h, tail: t) =>
+      match h
+      | Entry(id: i, title: _, author: _, loan: ln) =>
+          if i == id then
+            match ln
+            | None => true
+            | Some(value: _) => false
+            end
+          else
+            book_available(t, id)
+      end
+  end
+end
+
+fn print_one(b: Book) -> Unit =
+  match b
+  | Entry(id: i, title: ti, author: au, loan: ln) =>
+      match ln
+      | None =>
+          println(
+            concat(
+              concat(string_from_int(i), " | 《"),
+              concat(ti, concat("》 / ", concat(au, " | 在架")))
+            )
+          )
+      | Some(value: who) =>
+          println(
+            concat(
+              concat(string_from_int(i), " | 《"),
+              concat(ti, concat("》 / ", concat(au, concat(" | 借出：", who))))
+            )
+          )
+      end
+  end
+end
+
+fn list_books_tail(xs: List[Book]) -> Unit =
+  match xs
+  | Nil => ()
+  | Cons(head: h, tail: t) =>
+      do
+        print_one(h);
+        list_books_tail(t);
+        ()
+      end
+  end
+end
+
+fn list_books(xs: List[Book]) -> Unit =
+  match xs
+  | Nil => println("(书目为空)")
+  | Cons(head: h, tail: t) =>
+      do
+        print_one(h);
+        list_books_tail(t);
+        ()
+      end
+  end
+end
+
+fn add_book(xs: List[Book], next_id: Int, title: String, author: String) -> List[Book] =
+  List[Book].Cons(
+    Book.Entry(next_id, title, author, Option[String].None),
+    xs
+  )
+end
+
+fn map_borrow(xs: List[Book], id: Int, borrower: String) -> List[Book] =
+  match xs
+  | Nil => List[Book].Nil
+  | Cons(head: h, tail: t) =>
+      match h
+      | Entry(id: i, title: ti, author: au, loan: ln) =>
+          if i == id then
+            match ln
+            | None =>
+                List[Book].Cons(
+                  Book.Entry(i, ti, au, Option[String].Some(borrower)),
+                  t
+                )
+            | Some(value: _) => List[Book].Cons(h, t)
+            end
+          else
+            List[Book].Cons(h, map_borrow(t, id, borrower))
+      end
+  end
+end
+
+fn borrow_main(books: List[Book], id: Int, borrower: String) -> List[Book] =
+  if book_exists(books, id) then
+    if book_available(books, id) then
+      map_borrow(books, id, borrower)
+    else
+      do
+        println("该书已借出。");
+        books
+      end
+  else
+    do
+      println("无此编号。");
+      books
+    end
+end
+
+fn map_return(xs: List[Book], id: Int) -> List[Book] =
+  match xs
+  | Nil => List[Book].Nil
+  | Cons(head: h, tail: t) =>
+      match h
+      | Entry(id: i, title: ti, author: au, loan: ln) =>
+          if i == id then
+            match ln
+            | None => List[Book].Cons(h, t)
+            | Some(value: _) =>
+                List[Book].Cons(
+                  Book.Entry(i, ti, au, Option[String].None),
+                  t
+                )
+            end
+          else
+            List[Book].Cons(h, map_return(t, id))
+      end
+  end
+end
+
+fn return_main(books: List[Book], id: Int) -> List[Book] =
+  if book_exists(books, id) then
+    if book_available(books, id) then
+      do
+        println("该书在架，无需归还。");
+        books
+      end
+    else
+      do
+        println("归还成功。");
+        map_return(books, id)
+      end
+  else
+    do
+      println("无此编号。");
+      books
+    end
+end
+
+fn repl(books: List[Book], next_id: Int) -> Unit =
+  do
+    println("");
+    println("======== 图书管理 ========");
+    println("1 列出  2 入库  3 借出  4 归还  0 退出");
+    let c = trim(read_line());
+    if c == "0" then
+      println("再见。")
+    else if c == "1" then
+      do
+        list_books(books);
+        repl(books, next_id)
+      end
+    else if c == "2" then
+      do
+        println("书名：");
+        let t = trim(read_line());
+        println("作者：");
+        let a = trim(read_line());
+        let nb = add_book(books, next_id, t, a);
+        println(concat("已入库，编号 ", string_from_int(next_id)));
+        repl(nb, next_id + 1)
+      end
+    else if c == "3" then
+      do
+        println("图书编号：");
+        match parse_int(trim(read_line()))
+        | None =>
+            do
+              println("无效编号。");
+              repl(books, next_id)
+            end
+        | Some(value: bid) =>
+            do
+              println("借阅人：");
+              let who = trim(read_line());
+              let nb = borrow_main(books, bid, who);
+              repl(nb, next_id)
+            end
+        end
+      end
+    else if c == "4" then
+      do
+        println("图书编号：");
+        match parse_int(trim(read_line()))
+        | None =>
+            do
+              println("无效编号。");
+              repl(books, next_id)
+            end
+        | Some(value: rid) =>
+            do
+              let nb = return_main(books, rid);
+              repl(nb, next_id)
+            end
+        end
+      end
+    else
+      do
+        println("未知命令，请重试。");
+        repl(books, next_id)
+      end
+  end
+end
+
+fn main() -> Unit =
+  do
+    println("简易图书管理（内存版）。预置 2 本样书，编号从 1 起。");
+    repl(initial_catalog(), 3)
+  end
+end

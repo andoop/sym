@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代码测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .test-section {
+            margin-bottom: 25px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .result {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 50px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .success {
+            color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .error {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+        
+        .info {
+            color: #17a2b8;
+            border-color: #17a2b8;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .counter {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .color-box {
+            width: 100px;
+            height: 100px;
+            margin: 15px auto;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧪 代码测试页面</h1>
+            <p class="subtitle">这是一个用于测试网页功能的演示页面</p>
+        </header>
+        
+        <div class="content">
+            <div class="card">
+                <h2>JavaScript 功能测试</h2>
+                
+                <div class="test-section">
+                    <h3>计数器</h3>
+                    <div class="counter" id="counter">0</div>
+                    <button onclick="incrementCounter()">增加 (+1)</button>
+                    <button onclick="decrementCounter()">减少 (-1)</button>
+                    <button onclick="resetCounter()">重置</button>
+                </div>
+                
+                <div class="test-section">
+                    <h3>颜色切换器</h3>
+                    <div class="color-box" id="colorBox" style="background-color: #667eea;"></div>
+                    <button onclick="changeColor('#667eea')">蓝色</button>
+                    <button onclick="changeColor('#28a745')">绿色</button>
+                    <button onclick="changeColor('#dc3545')">红色</button>
+                    <button onclick="changeColor('#ffc107')">黄色</button>
+                    <button onclick="randomColor()">随机颜色</button>
+                </div>
+                
+                <div class="test-section">
+                    <h3>时间显示</h3>
+                    <div id="timeDisplay" class="result info">点击按钮显示当前时间</div>
+                    <button onclick="showCurrentTime()">显示当前时间</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>DOM 操作测试</h2>
+                
+                <div class="test-section">
+                    <h3>文本操作</h3>
+                    <div class="input-group">
+                        <input type="text" id="textInput" placeholder="输入一些文字...">
+                    </div>
+                    <button onclick="updateText()">更新文本</button>
+                    <button onclick="clearText()">清空文本</button>
+                    <div id="textResult" class="result">这里会显示输入的文本</div>
+                </div>
+                
+                <div class="test-section">
+                    <h3>列表操作</h3>
+                    <div class="input-group">
+                        <input type="text" id="itemInput" placeholder="输入列表项...">
+                    </div>
+                    <button onclick="addListItem()">添加列表项</button>
+                    <button onclick="clearList()">清空列表</button>
+                    <ul id="itemList" style="margin-top: 15px; padding-left: 20px;">
+                        <li>示例项目 1</li>
+                        <li>示例项目 2</li>
+                    </ul>
+                </div>
+                
+                <div class="test-section">
+                    <h3>样式切换</h3>
+                    <div id="styleTest" class="result" style="padding: 15px; margin: 10px 0;">
+                        这是一个样式测试区域
+                    </div>
+                    <button onclick="toggleStyle('success')">成功样式</button>
+                    <button onclick="toggleStyle('error')">错误样式</button>
+                    <button onclick="toggleStyle('info')">信息样式</button>
+                    <button onclick="resetStyle()">重置样式</button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2024 代码测试页面 | 最后更新: <span id="currentDate"></span></p>
+            <p>页面状态: <span id="pageStatus">正常</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // 计数器功能
+        let counter = 0;
+        const counterElement = document.getElementById('counter');
+        
+        function incrementCounter() {
+            counter++;
+            updateCounterDisplay();
+        }
+        
+        function decrementCounter() {
+            counter--;
+            updateCounterDisplay();
+        }
+        
+        function resetCounter() {
+            counter = 0;
+            updateCounterDisplay();
+        }
+        
+        function updateCounterDisplay() {
+            counterElement.textContent = counter;
+            counterElement.style.color = counter > 0 ? '#28a745' : 
+                                       counter < 0 ? '#dc3545' : '#667eea';
+        }
+        
+        // 颜色切换功能
+        function changeColor(color) {
+            document.getElementById('colorBox').style.backgroundColor = color;
+        }
+        
+        function randomColor() {
+            const colors = ['#667eea', '#764ba2', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#fd7e14'];
+            const randomIndex = Math.floor(Math.random() * colors.length);
+            changeColor(colors[randomIndex]);
+        }
+        
+        // 时间显示功能
+        function showCurrentTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            document.getElementById('timeDisplay').textContent = `当前时间: ${timeString}`;
+        }
+        
+        // 文本操作功能
+        function updateText() {
+            const input = document.getElementById('textInput');
+            const result = document.getElementById('textResult');
+            if (input.value.trim()) {
+                result.textContent = `您输入的是: ${input.value}`;
+                result.className = 'result success';
+            } else {
+                result.textContent = '请输入一些文字';
+                result.className = 'result error';
+            }
+        }
+        
+        function clearText() {
+            document.getElementById('textInput').value = '';
+            document.getElementById('textResult').textContent = '这里会显示输入的文本';
+            document.getElementById('textResult').className = 'result';
+        }
+        
+        // 列表操作功能
+        function addListItem() {
+            const input = document.getElementById('itemInput');
+            const list = document.getElementById('itemList');
+            
+            if (input.value.trim()) {
+                const newItem = document.createElement('li');
+                newItem.textContent = input.value;
+                list.appendChild(newItem);
+                input.value = '';
+            }
+        }
+        
+        function clearList() {
+            const list = document.getElementById('itemList');
+            list.innerHTML = '';
+        }
+        
+        // 样式切换功能
+        function toggleStyle(styleType) {
+            const element = document.getElementById('styleTest');
+            element.className = 'result ' + styleType;
+            element.textContent = `这是 ${styleType} 样式`;
+        }
+        
+        function resetStyle() {
+            const element = document.getElementById('styleTest');
+            element.className = 'result';
+            element.textContent = '这是一个样式测试区域';
+        }
+        
+        // 页面初始化
+        function initPage() {
+            // 显示当前日期
+            const now = new Date();
+            const dateString = now.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            document.getElementById('currentDate').textContent = dateString;
+            
+            // 更新页面状态
+            document.getElementById('pageStatus').textContent = '正常';
+            document.getElementById('pageStatus').style.color = '#28a745';
+            
+            // 初始化计数器显示
+            updateCounterDisplay();
+            
+            console.log('页面初始化完成');
+        }
+        
+        // 页面加载完成后初始化
+        window.onload = initPage;
+        
+        // 添加键盘快捷键
+        document.addEventListener('keydown', function(event) {
+            // Ctrl + Enter 更新文本
+            if (event.ctrlKey && event.key === 'Enter') {
+                updateText();
+            }
+            
+            // Esc 清空文本
+            if (event.key === 'Escape') {
+                clearText();
+            }
+        });
+    </script>
+</body>
+</html>

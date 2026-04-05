@@ -1,0 +1,8 @@
+# 最小示例：入口 `main`，无参数，返回 Unit
+
+fn main() -> Unit =
+  do
+    println("hello, Sym");
+    ()
+  end
+end

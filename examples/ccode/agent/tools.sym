@@ -1,0 +1,312 @@
+# ccode / agent：文件类工具（对齐 Claude Code Read / Write / Glob / 列目录）+ 未实现宿主类工具。
+
+fn tool_def_read_file() -> String =
+  concat(
+    "{\"name\":\"read_file\",\"description\":\"Read entire file as UTF-8 text. Path relative to process cwd.\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"File path\"}},\"required\":[\"path\"]}",
+      "}"
+    )
+  )
+end
+
+fn tool_def_write_file() -> String =
+  concat(
+    "{\"name\":\"write_file\",\"description\":\"Create or overwrite a file with given UTF-8 content.\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}",
+      "}"
+    )
+  )
+end
+
+fn tool_def_list_dir() -> String =
+  concat(
+    "{\"name\":\"list_dir\",\"description\":\"List non-hidden entries in a directory (names only; directories suffixed with /).\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}",
+      "}"
+    )
+  )
+end
+
+fn tool_def_glob_file_search() -> String =
+  concat(
+    "{\"name\":\"glob_file_search\",\"description\":\"Find files under target_directory matching glob_pattern (e.g. **/*.sym, src/**/*.rs).\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"target_directory\":{\"type\":\"string\"},\"glob_pattern\":{\"type\":\"string\"}},\"required\":[\"target_directory\",\"glob_pattern\"]}",
+      "}"
+    )
+  )
+end
+
+fn tool_def_bash_claude() -> String =
+  concat(
+    "{\"name\":\"Bash\",\"description\":\"Runs a shell command (aligned with Claude Code Bash tool). POSIX: sh -lc; Windows: cmd /C. Optional cwd is relative to the sym process cwd.\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\",\"description\":\"The command to execute\"},\"cwd\":{\"type\":\"string\",\"description\":\"Working directory (relative to process cwd); omit for current directory\"},\"description\":{\"type\":\"string\",\"description\":\"Brief human description of what the command does (advisory)\"},\"timeout\":{\"type\":\"number\",\"description\":\"Optional timeout ms (not enforced in sym ccode yet)\"}},\"required\":[\"command\"]}",
+      "}"
+    )
+  )
+end
+
+fn tool_def_shell() -> String =
+  concat(
+    "{\"name\":\"shell\",\"description\":\"Same as Bash: run a shell command in optional cwd (sh -lc / cmd /C).\",\"input_schema\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\"},\"cwd\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"timeout\":{\"type\":\"number\"}},\"required\":[\"command\"]}",
+      "}"
+    )
+  )
+end
+
+fn tools_json() -> String =
+  concat(
+    "[",
+    concat(
+      tool_def_read_file(),
+      concat(
+        ",",
+        concat(
+          tool_def_write_file(),
+          concat(
+            ",",
+            concat(
+              tool_def_list_dir(),
+              concat(
+                ",",
+                concat(
+                  tool_def_glob_file_search(),
+                  concat(
+                    ",",
+                    concat(tool_def_bash_claude(), concat(",", concat(tool_def_shell(), "]")))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn openai_tool_read_file() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"description\":\"Read UTF-8 file; path relative to cwd.\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tool_write_file() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write or overwrite file.\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tool_list_dir() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"list_dir\",\"description\":\"List directory entries (dirs end with /).\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tool_glob_file_search() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"glob_file_search\",\"description\":\"Glob files under directory.\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"target_directory\":{\"type\":\"string\"},\"glob_pattern\":{\"type\":\"string\"}},\"required\":[\"target_directory\",\"glob_pattern\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tool_bash() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"bash\",\"description\":\"Run shell command (sh -lc or cmd /C). Optional cwd relative to process cwd.\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\"},\"cwd\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"timeout\":{\"type\":\"number\"}},\"required\":[\"command\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tool_shell() -> String =
+  concat(
+    "{\"type\":\"function\",\"function\":{\"name\":\"shell\",\"description\":\"Alias of bash: run shell in optional cwd.\",\"parameters\":",
+    concat(
+      "{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\"},\"cwd\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"},\"timeout\":{\"type\":\"number\"}},\"required\":[\"command\"]}",
+      "}}"
+    )
+  )
+end
+
+fn openai_tools_json() -> String =
+  concat(
+    "[",
+    concat(
+      openai_tool_read_file(),
+      concat(
+        ",",
+        concat(
+          openai_tool_write_file(),
+          concat(
+            ",",
+            concat(
+              openai_tool_list_dir(),
+              concat(
+                ",",
+                concat(
+                  openai_tool_glob_file_search(),
+                  concat(
+                    ",",
+                    concat(openai_tool_bash(), concat(",", concat(openai_tool_shell(), "]")))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn tool_use_error_xml(msg: String) -> String =
+  concat("<tool_use_error>", concat(msg, "</tool_use_error>"))
+end
+
+fn tool_unknown_message(name: String) -> String =
+  tool_use_error_xml(concat("Error: No such tool available: ", name))
+end
+
+fn tool_host_stub(what: String) -> String =
+  tool_use_error_xml(
+    concat(
+      "Sym ccode 宿主未实现：",
+      what
+    )
+  )
+end
+
+fn glob_target_dir(input_json: String) -> String =
+  match json_extract(input_json, "target_directory")
+  | None => "."
+  | Some(value: t) =>
+      if trim(t) == "" then "." else trim(t)
+  end
+end
+
+fn dispatch_write_file(input_json: String) -> String =
+  match json_extract(input_json, "path")
+  | None =>
+      tool_use_error_xml("write_file 缺少 path")
+  | Some(value: path) =>
+      match json_extract(input_json, "content")
+      | None =>
+          tool_use_error_xml("write_file 缺少 content")
+      | Some(value: content) =>
+          if write_file_ok(path, content) then
+            concat("写入成功：", path)
+          else
+            concat("写入失败（权限或路径错误）：", path)
+      end
+  end
+end
+
+fn dispatch_list_dir(input_json: String) -> String =
+  match json_extract(input_json, "path")
+  | None =>
+      tool_use_error_xml("list_dir 缺少 path")
+  | Some(value: path) =>
+      match list_dir(path)
+      | None =>
+          concat("列出目录失败（不存在或不可读）：", path)
+      | Some(value: body) =>
+          if trim(body) == "" then "(目录为空)" else body
+      end
+  end
+end
+
+fn shell_cwd_or_dot(input_json: String) -> String =
+  match json_extract(input_json, "cwd")
+  | None => "."
+  | Some(value: t) =>
+      if trim(t) == "" then "." else trim(t)
+  end
+end
+
+fn dispatch_shell(input_json: String) -> String =
+  match json_extract(input_json, "command")
+  | None =>
+      tool_use_error_xml("Bash/shell: missing required field command")
+  | Some(value: cmd) =>
+      if trim(cmd) == "" then
+        tool_use_error_xml("Bash/shell: command is empty")
+      else
+        do
+          let cwd = shell_cwd_or_dot(input_json);
+          match shell_exec(cwd, cmd)
+          | None =>
+              tool_use_error_xml(
+                "shell_exec: failed to spawn subprocess (check cwd and shell availability)"
+              )
+          | Some(value: out) =>
+              out
+          end
+        end
+  end
+end
+
+fn dispatch_glob_file_search(input_json: String) -> String =
+  let base = glob_target_dir(input_json) in
+  match json_extract(input_json, "glob_pattern")
+  | None =>
+      tool_use_error_xml("glob_file_search 缺少 glob_pattern")
+  | Some(value: pattern) =>
+      if trim(pattern) == "" then
+        tool_use_error_xml("glob_pattern 为空")
+      else
+        match glob_files(base, trim(pattern))
+        | None =>
+            "glob 无效或扫描失败（检查 target_directory 与 glob_pattern）"
+        | Some(value: hits) =>
+            if trim(hits) == "" then "(无匹配)" else hits
+        end
+  end
+end
+
+fn dispatch_tool_input(name: String, input_json: String) -> String =
+  if name == "read_file" then
+    match json_extract(input_json, "path")
+    | None =>
+        tool_use_error_xml("read_file 缺少 input.path")
+    | Some(value: p) =>
+        match read_file(p)
+        | None =>
+            concat("读取失败（不存在或不可读）：", p)
+        | Some(value: c) =>
+            c
+        end
+    end
+  else if name == "write_file" then
+    dispatch_write_file(input_json)
+  else if name == "list_dir" then
+    dispatch_list_dir(input_json)
+  else if name == "glob_file_search" then
+    dispatch_glob_file_search(input_json)
+  else if name == "Bash" || name == "bash" || name == "shell" then
+    dispatch_shell(input_json)
+  else
+    tool_unknown_message(name)
+end

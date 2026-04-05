@@ -1,0 +1,20 @@
+# ccode / agent：与 claude-code queryLoop 对齐时的常量（系统提示、轮次等）。
+#
+# 路由（main.sym）：
+# - Anthropic：ANTHROPIC_API_KEY；可选 ANTHROPIC_BASE_URL（与 Claude Code 一致，默认 https://api.anthropic.com）、ANTHROPIC_MODEL。
+# - OpenAI 兼容（DeepSeek 等）：OPENAI_API_KEY 或 DEEPSEEK_API_KEY；OPENAI_BASE_URL 或 DEEPSEEK_BASE_URL（默认 https://api.openai.com/v1）；
+#   OPENAI_MODEL 或 DEEPSEEK_MODEL（默认 deepseek-chat）。若同时存在 Anthropic key，默认走 Anthropic；设 CCODE_USE_OPENAI=1 可强制 OpenAI 线。
+
+fn system_prompt() -> String =
+  concat(
+    "你是编程助手。可用工具：read_file、write_file（覆盖写入）、list_dir、glob_file_search（target_directory + glob_pattern）；Bash / shell（与 Claude Code 对齐：必填 command，可选 cwd 相对当前工作目录、description、timeout）。POSIX 使用 sh -lc。若需禁止执行 shell，可设置环境变量 CCODE_DISABLE_SHELL=1。",
+    concat(
+      "\n工作目录为运行 sym 时的当前目录；路径用相对路径。多 tool_use 同轮串行执行，结果合并为一条 user 消息。",
+      "\n不要编造未读文件内容；中文简练。"
+    )
+  )
+end
+
+fn default_max_rounds() -> Int =
+  12
+end

@@ -1,0 +1,496 @@
+# ccode：Anthropic Messages SSE 折叠（业务在 Sym；解释器只提供 http_post_sse_fold + stdout_print）。
+
+import api
+
+fn anthropic_g(st: String, field: String) -> String =
+  match json_extract(st, field)
+  | None => ""
+  | Some(value: v) => v
+  end
+end
+
+fn anthropic_state0() -> String =
+  "{\"sr\":\"\",\"mid\":\"\",\"mdl\":\"\",\"k0\":\"\",\"b0\":\"\",\"k1\":\"\",\"b1\":\"\",\"k2\":\"\",\"b2\":\"\",\"k3\":\"\",\"b3\":\"\",\"k4\":\"\",\"b4\":\"\",\"k5\":\"\",\"b5\":\"\",\"k6\":\"\",\"b6\":\"\",\"k7\":\"\",\"b7\":\"\"}"
+end
+
+fn anthropic_pack19(
+  sr: String,
+  mid: String,
+  mdl: String,
+  k0: String,
+  b0: String,
+  k1: String,
+  b1: String,
+  k2: String,
+  b2: String,
+  k3: String,
+  b3: String,
+  k4: String,
+  b4: String,
+  k5: String,
+  b5: String,
+  k6: String,
+  b6: String,
+  k7: String,
+  b7: String
+) -> String =
+  concat(
+    "{\"sr\":",
+    concat(
+      json_string(sr),
+      concat(
+        ",\"mid\":",
+        concat(
+          json_string(mid),
+          concat(
+            ",\"mdl\":",
+            concat(
+              json_string(mdl),
+              concat(
+                ",\"k0\":",
+                concat(
+                  json_string(k0),
+                  concat(
+                    ",\"b0\":",
+                    concat(
+                      json_string(b0),
+                      concat(
+                        ",\"k1\":",
+                        concat(
+                          json_string(k1),
+                          concat(
+                            ",\"b1\":",
+                            concat(
+                              json_string(b1),
+                              concat(
+                                ",\"k2\":",
+                                concat(
+                                  json_string(k2),
+                                  concat(
+                                    ",\"b2\":",
+                                    concat(
+                                      json_string(b2),
+                                      concat(
+                                        ",\"k3\":",
+                                        concat(
+                                          json_string(k3),
+                                          concat(
+                                            ",\"b3\":",
+                                            concat(
+                                              json_string(b3),
+                                              concat(
+                                                ",\"k4\":",
+                                                concat(
+                                                  json_string(k4),
+                                                  concat(
+                                                    ",\"b4\":",
+                                                    concat(
+                                                      json_string(b4),
+                                                      concat(
+                                                        ",\"k5\":",
+                                                        concat(
+                                                          json_string(k5),
+                                                          concat(
+                                                            ",\"b5\":",
+                                                            concat(
+                                                              json_string(b5),
+                                                              concat(
+                                                                ",\"k6\":",
+                                                                concat(
+                                                                  json_string(k6),
+                                                                  concat(
+                                                                    ",\"b6\":",
+                                                                    concat(
+                                                                      json_string(b6),
+                                                                      concat(
+                                                                        ",\"k7\":",
+                                                                        concat(
+                                                                          json_string(k7),
+                                                                          concat(
+                                                                            ",\"b7\":",
+                                                                            concat(
+                                                                              json_string(b7),
+                                                                              "}"
+                                                                            )
+                                                                          )
+                                                                        )
+                                                                      )
+                                                                    )
+                                                                  )
+                                                                )
+                                                              )
+                                                            )
+                                                          )
+                                                        )
+                                                      )
+                                                    )
+                                                  )
+                                                )
+                                              )
+                                            )
+                                          )
+                                        )
+                                      )
+                                    )
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn json_index_m(line: String) -> Int =
+  match json_value(line, "index")
+  | None => 0
+  | Some(value: v) =>
+      match parse_int(trim(v))
+      | None => 0
+      | Some(value: n) => n
+      end
+  end
+end
+
+fn anthropic_clamp_idx(raw: Int) -> Int =
+  if raw < 0 then 0 else if raw > 7 then 7 else raw
+end
+
+fn tool_id(b: String) -> String =
+  let i = index_of(b, "\t") in
+  if i < 0 then b else substring(b, 0, i)
+end
+
+fn after_tab(b: String) -> String =
+  let i = index_of(b, "\t") in
+  if i < 0 then "" else substring(b, i + 1, strlen(b) - i - 1)
+end
+
+fn tool_name(b: String) -> String = tool_id(after_tab(b)) end
+
+fn tool_input(b: String) -> String = after_tab(after_tab(b)) end
+
+fn anthropic_slot_json(st: String, i: Int) -> String =
+  let k = anthropic_g(st, concat("k", string_from_int(i))) in
+  let b = anthropic_g(st, concat("b", string_from_int(i))) in
+  if k == "" then
+    ""
+  else if k == "T" then
+    concat("{\"type\":\"text\",\"text\":", concat(json_string(b), "}"))
+  else if k == "U" then
+    concat(
+      "{\"type\":\"tool_use\",\"id\":",
+      concat(
+        json_string(tool_id(b)),
+        concat(
+          ",\"name\":",
+          concat(
+            json_string(tool_name(b)),
+            concat(",\"input\":", concat(tool_input(b), "}"))
+          )
+        )
+      )
+    )
+  else
+    ""
+end
+
+fn anthropic_join_slots(st: String, i: Int, acc: String) -> String =
+  if i >= 8 then
+    acc
+  else
+    do
+      let piece = anthropic_slot_json(st, i);
+      let acc2 =
+        if piece == "" then acc else if acc == "" then piece else concat(acc, concat(",", piece));
+      anthropic_join_slots(st, i + 1, acc2)
+    end
+end
+
+fn anthropic_sse_finalize(st: String) -> String =
+  match json_extract(st, "stop_reason")
+  | Some(_) => st
+  | None =>
+      if is_api_error(st) then
+        st
+      else
+        do
+          let sr0 = anthropic_g(st, "sr");
+          let sr = if sr0 == "" then "end_turn" else sr0;
+          let mid = anthropic_g(st, "mid");
+          let mdl = anthropic_g(st, "mdl");
+          let inner = anthropic_join_slots(st, 0, "");
+          let content = concat("[", concat(inner, "]"));
+          concat(
+            "{\"id\":",
+            concat(
+              json_string(mid),
+              concat(
+                ",\"type\":\"message\",\"role\":\"assistant\",\"model\":",
+                concat(
+                  json_string(mdl),
+                  concat(
+                    ",\"content\":",
+                    concat(
+                      content,
+                      concat(
+                        ",\"stop_reason\":",
+                        concat(
+                          json_string(sr),
+                          ",\"ccode_streamed\":\"1\"}"
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        end
+  end
+end
+
+fn anthropic_sse_reduce(state: String, line: String) -> String =
+  do
+    let sr = anthropic_g(state, "sr");
+    let mid = anthropic_g(state, "mid");
+    let mdl = anthropic_g(state, "mdl");
+    let k0 = anthropic_g(state, "k0");
+    let b0 = anthropic_g(state, "b0");
+    let k1 = anthropic_g(state, "k1");
+    let b1 = anthropic_g(state, "b1");
+    let k2 = anthropic_g(state, "k2");
+    let b2 = anthropic_g(state, "b2");
+    let k3 = anthropic_g(state, "k3");
+    let b3 = anthropic_g(state, "b3");
+    let k4 = anthropic_g(state, "k4");
+    let b4 = anthropic_g(state, "b4");
+    let k5 = anthropic_g(state, "k5");
+    let b5 = anthropic_g(state, "b5");
+    let k6 = anthropic_g(state, "k6");
+    let b6 = anthropic_g(state, "b6");
+    let k7 = anthropic_g(state, "k7");
+    let b7 = anthropic_g(state, "b7");
+    match json_extract(line, "type")
+    | None => state
+    | Some(value: ty) =>
+        if ty == "error" then
+          line
+        else if ty == "message_start" then
+          do
+            let nmid =
+              match json_extract(line, "message.id")
+              | None => mid
+              | Some(value: v) => v
+              end;
+            let nmdl =
+              match json_extract(line, "message.model")
+              | None => mdl
+              | Some(value: v) => v
+              end;
+            anthropic_pack19(
+              sr,
+              nmid,
+              nmdl,
+              k0,
+              b0,
+              k1,
+              b1,
+              k2,
+              b2,
+              k3,
+              b3,
+              k4,
+              b4,
+              k5,
+              b5,
+              k6,
+              b6,
+              k7,
+              b7
+            )
+          end
+        else if ty == "content_block_start" then
+          do
+            let cbt =
+              match json_extract(line, "content_block.type")
+              | None => ""
+              | Some(value: v) => v
+              end;
+            let nidx = anthropic_clamp_idx(json_index_m(line));
+            if cbt == "thinking" || cbt == "redacted_thinking" then
+              state
+            else if cbt == "text" then
+              anthropic_pack19(
+                sr,
+                mid,
+                mdl,
+                if nidx == 0 then "T" else k0,
+                if nidx == 0 then "" else b0,
+                if nidx == 1 then "T" else k1,
+                if nidx == 1 then "" else b1,
+                if nidx == 2 then "T" else k2,
+                if nidx == 2 then "" else b2,
+                if nidx == 3 then "T" else k3,
+                if nidx == 3 then "" else b3,
+                if nidx == 4 then "T" else k4,
+                if nidx == 4 then "" else b4,
+                if nidx == 5 then "T" else k5,
+                if nidx == 5 then "" else b5,
+                if nidx == 6 then "T" else k6,
+                if nidx == 6 then "" else b6,
+                if nidx == 7 then "T" else k7,
+                if nidx == 7 then "" else b7
+              )
+            else if cbt == "tool_use" then
+              do
+                let tid =
+                  match json_extract(line, "content_block.id")
+                  | None => ""
+                  | Some(value: v) => v
+                  end;
+                let tnm =
+                  match json_extract(line, "content_block.name")
+                  | None => ""
+                  | Some(value: v) => v
+                  end;
+                let nb = concat(tid, concat("\t", concat(tnm, "\t")));
+                anthropic_pack19(
+                  sr,
+                  mid,
+                  mdl,
+                  if nidx == 0 then "U" else k0,
+                  if nidx == 0 then nb else b0,
+                  if nidx == 1 then "U" else k1,
+                  if nidx == 1 then nb else b1,
+                  if nidx == 2 then "U" else k2,
+                  if nidx == 2 then nb else b2,
+                  if nidx == 3 then "U" else k3,
+                  if nidx == 3 then nb else b3,
+                  if nidx == 4 then "U" else k4,
+                  if nidx == 4 then nb else b4,
+                  if nidx == 5 then "U" else k5,
+                  if nidx == 5 then nb else b5,
+                  if nidx == 6 then "U" else k6,
+                  if nidx == 6 then nb else b6,
+                  if nidx == 7 then "U" else k7,
+                  if nidx == 7 then nb else b7
+                )
+              end
+            else
+              state
+          end
+        else if ty == "content_block_delta" then
+          do
+            let nidx = anthropic_clamp_idx(json_index_m(line));
+            let dty =
+              match json_extract(line, "delta.type")
+              | None => ""
+              | Some(value: v) => v
+              end;
+            if dty == "text_delta" then
+              do
+                let chunk =
+                  match json_extract(line, "delta.text")
+                  | None => ""
+                  | Some(value: v) => v
+                  end;
+                stdout_print(chunk);
+                anthropic_pack19(
+                  sr,
+                  mid,
+                  mdl,
+                  k0,
+                  if nidx == 0 then concat(b0, chunk) else b0,
+                  k1,
+                  if nidx == 1 then concat(b1, chunk) else b1,
+                  k2,
+                  if nidx == 2 then concat(b2, chunk) else b2,
+                  k3,
+                  if nidx == 3 then concat(b3, chunk) else b3,
+                  k4,
+                  if nidx == 4 then concat(b4, chunk) else b4,
+                  k5,
+                  if nidx == 5 then concat(b5, chunk) else b5,
+                  k6,
+                  if nidx == 6 then concat(b6, chunk) else b6,
+                  k7,
+                  if nidx == 7 then concat(b7, chunk) else b7
+                )
+              end
+            else if dty == "input_json_delta" then
+              do
+                let pj =
+                  match json_extract(line, "delta.partial_json")
+                  | None => ""
+                  | Some(value: v) => v
+                  end;
+                anthropic_pack19(
+                  sr,
+                  mid,
+                  mdl,
+                  k0,
+                  if nidx == 0 then concat(b0, pj) else b0,
+                  k1,
+                  if nidx == 1 then concat(b1, pj) else b1,
+                  k2,
+                  if nidx == 2 then concat(b2, pj) else b2,
+                  k3,
+                  if nidx == 3 then concat(b3, pj) else b3,
+                  k4,
+                  if nidx == 4 then concat(b4, pj) else b4,
+                  k5,
+                  if nidx == 5 then concat(b5, pj) else b5,
+                  k6,
+                  if nidx == 6 then concat(b6, pj) else b6,
+                  k7,
+                  if nidx == 7 then concat(b7, pj) else b7
+                )
+              end
+            else
+              state
+          end
+        else if ty == "message_delta" then
+          do
+            let nsr =
+              match json_extract(line, "delta.stop_reason")
+              | None => sr
+              | Some(value: v) => v
+              end;
+            anthropic_pack19(
+              nsr,
+              mid,
+              mdl,
+              k0,
+              b0,
+              k1,
+              b1,
+              k2,
+              b2,
+              k3,
+              b3,
+              k4,
+              b4,
+              k5,
+              b5,
+              k6,
+              b6,
+              k7,
+              b7
+            )
+          end
+        else
+          state
+    end
+  end
+end

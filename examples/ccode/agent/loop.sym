@@ -1,0 +1,202 @@
+# ccode / agent：query 内层循环（对齐 queryLoop + runTools 串行：遍历 content、合并 tool_result）。
+
+import config
+import api
+import messages
+import tools
+import stream_anthropic
+
+fn content_type_at(resp: String, i: Int) -> Option[String] =
+  json_extract(
+    resp,
+    concat("content.", concat(string_from_int(i), ".type"))
+  )
+end
+
+fn content_block_count(resp: String) -> Int =
+  count_blocks_from(resp, 0)
+end
+
+fn count_blocks_from(resp: String, i: Int) -> Int =
+  match content_type_at(resp, i)
+  | None => i
+  | Some(value: _) => count_blocks_from(resp, i + 1)
+  end
+end
+
+fn print_text_blocks(resp: String, i: Int, n: Int) -> Unit =
+  if i >= n then
+    ()
+  else
+    do
+      match content_type_at(resp, i)
+      | None => ()
+      | Some(value: ty) =>
+          if ty == "text" then
+            match json_extract(
+              resp,
+              concat("content.", concat(string_from_int(i), ".text"))
+            )
+            | None => ()
+            | Some(value: txt) => println(concat("[助手] ", txt))
+            end
+          else
+            ()
+      end;
+      print_text_blocks(resp, i + 1, n)
+    end
+end
+
+fn collect_tool_results_inner(
+  resp: String,
+  i: Int,
+  n: Int,
+  acc: String,
+  need_comma: Bool
+) -> String =
+  if i >= n then
+    acc
+  else
+    match content_type_at(resp, i)
+    | None => acc
+    | Some(value: ty) =>
+        if ty == "tool_use" then
+          do
+            let prefix = concat("content.", string_from_int(i));
+            let tid_m = json_extract(resp, concat(prefix, ".id"));
+            let nm_m = json_extract(resp, concat(prefix, ".name"));
+            let input_m = json_value(resp, concat(prefix, ".input"));
+            let input_json = match input_m
+            | None => "{}"
+            | Some(value: s) => s
+            end;
+            match tid_m
+            | None =>
+                collect_tool_results_inner(
+                  resp,
+                  i + 1,
+                  n,
+                  acc,
+                  need_comma
+                )
+            | Some(value: tid) =>
+                do
+                  let nm = match nm_m
+                  | None => "__unknown__"
+                  | Some(value: x) => x
+                  end;
+                  let body = dispatch_tool_input(nm, input_json);
+                  let blk = single_tool_result_block(tid, body);
+                  let acc2 = if need_comma then concat(acc, concat(",", blk)) else concat(acc, blk);
+                  collect_tool_results_inner(resp, i + 1, n, acc2, true)
+                end
+            end
+          end
+        else
+          collect_tool_results_inner(resp, i + 1, n, acc, need_comma)
+    end
+end
+
+fn run_tool_round_and_continue(
+  resp: String,
+  msgs_inner: String,
+  turns_left: Int,
+  api: String,
+  model: String,
+  system: String
+) -> Unit =
+  do
+    let n = content_block_count(resp);
+    let inner_tr = collect_tool_results_inner(resp, 0, n, "", false);
+    let user_tr = user_message_tool_results_inner(inner_tr);
+    let asst = assistant_from_response(resp);
+    let inner2 = concat(
+      concat(msgs_inner, ","),
+      concat(asst, concat(",", user_tr))
+    );
+    agent_loop(inner2, turns_left - 1, api, model, system)
+  end
+end
+
+fn handle_ok_response(
+  resp: String,
+  msgs_inner: String,
+  turns_left: Int,
+  api: String,
+  model: String,
+  system: String
+) -> Unit =
+  match json_extract(resp, "stop_reason")
+  | None =>
+      eprintln("响应缺少 stop_reason")
+  | Some(value: sr) =>
+      if sr == "end_turn" then
+        match json_extract(resp, "ccode_streamed")
+        | Some(value: v) =>
+            if v == "1" then
+              ()
+            else
+              do
+                let n = content_block_count(resp);
+                print_text_blocks(resp, 0, n);
+                ()
+              end
+        | None =>
+            do
+              let n = content_block_count(resp);
+              print_text_blocks(resp, 0, n);
+              ()
+            end
+      end
+      else if sr == "tool_use" then
+        run_tool_round_and_continue(
+          resp,
+          msgs_inner,
+          turns_left,
+          api,
+          model,
+          system
+        )
+      else
+        eprintln(concat("未知 stop_reason: ", sr))
+  end
+end
+
+fn agent_loop(
+  msgs_inner: String,
+  turns_left: Int,
+  api: String,
+  model: String,
+  system: String
+) -> Unit =
+  if turns_left <= 0 then
+    eprintln("达到最大工具往返轮次，停止。")
+  else
+    do
+      match http_post_sse_fold(
+        anthropic_messages_url(),
+        messages_headers(api),
+        build_body_stream(model, system, msgs_inner),
+        anthropic_state0(),
+        anthropic_sse_reduce
+      )
+      | None =>
+          eprintln("HTTP 失败或空响应体。")
+      | Some(value: st) =>
+          do
+            let resp = anthropic_sse_finalize(st);
+            if is_api_error(resp) then
+              print_api_error(resp)
+            else
+              handle_ok_response(
+                resp,
+                msgs_inner,
+                turns_left,
+                api,
+                model,
+                system
+              )
+          end
+      end
+    end
+end

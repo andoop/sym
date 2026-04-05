@@ -1,0 +1,192 @@
+# ccode / agent：HTTP 头、请求体、API 错误解析。
+# Anthropic：ANTHROPIC_BASE_URL（与 Claude Code / SDK 一致）+ x-api-key。
+# OpenAI 兼容：OPENAI_BASE_URL 或 DEEPSEEK_BASE_URL + Bearer。
+
+import tools
+
+fn anthropic_default_host() -> String =
+  "https://api.anthropic.com"
+end
+
+fn api_base_no_trailing_slash(b: String) -> String =
+  if strlen(b) > 0 && substring(b, strlen(b) - 1, 1) == "/" then
+    api_base_no_trailing_slash(substring(b, 0, strlen(b) - 1))
+  else
+    b
+end
+
+fn anthropic_base_resolved() -> String =
+  match env_get("ANTHROPIC_BASE_URL")
+  | None => anthropic_default_host()
+  | Some(value: b) =>
+      if trim(b) == "" then
+        anthropic_default_host()
+      else
+        api_base_no_trailing_slash(trim(b))
+  end
+end
+
+fn anthropic_messages_url() -> String =
+  concat(anthropic_base_resolved(), "/v1/messages")
+end
+
+fn messages_headers(api_key: String) -> String =
+  concat(
+    "x-api-key: ",
+    concat(
+      api_key,
+      "\nanthropic-version: 2023-06-01\ncontent-type: application/json"
+    )
+  )
+end
+
+fn build_body(model: String, system: String, msgs_inner: String) -> String =
+  concat(
+    "{\"model\":",
+    concat(
+      json_string(model),
+      concat(
+        ",\"system\":",
+        concat(
+          json_string(system),
+          concat(
+            ",\"max_tokens\":4096,\"messages\":[",
+            concat(
+              msgs_inner,
+              concat("],\"tools\":", concat(tools_json(), "}"))
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn build_body_stream(model: String, system: String, msgs_inner: String) -> String =
+  concat(
+    "{\"model\":",
+    concat(
+      json_string(model),
+      concat(
+        ",\"system\":",
+        concat(
+          json_string(system),
+          concat(
+            ",\"max_tokens\":4096,\"messages\":[",
+            concat(
+              msgs_inner,
+              concat("],\"tools\":", concat(tools_json(), ",\"stream\":true}"))
+            )
+          )
+        )
+      )
+    )
+  )
+end
+
+fn is_api_error(resp: String) -> Bool =
+  match json_extract(resp, "type")
+  | Some(value: t) => t == "error"
+  | None => false
+  end
+end
+
+fn print_api_error(resp: String) -> Unit =
+  match json_extract(resp, "error.message")
+  | Some(value: m) => eprintln(m)
+  | None => eprintln("API 返回 error 但缺少 error.message")
+  end
+end
+
+fn openai_default_base() -> String =
+  "https://api.openai.com/v1"
+end
+
+fn openai_base_resolved() -> String =
+  match env_get("OPENAI_BASE_URL")
+  | Some(value: b) =>
+      if trim(b) == "" then
+        openai_base_from_deepseek_env()
+      else
+        api_base_no_trailing_slash(trim(b))
+  | None => openai_base_from_deepseek_env()
+  end
+end
+
+fn openai_base_from_deepseek_env() -> String =
+  match env_get("DEEPSEEK_BASE_URL")
+  | None => openai_default_base()
+  | Some(value: b) =>
+      if trim(b) == "" then
+        openai_default_base()
+      else
+        api_base_no_trailing_slash(trim(b))
+  end
+end
+
+fn openai_chat_url() -> String =
+  concat(openai_base_resolved(), "/chat/completions")
+end
+
+fn openai_messages_headers(api_key: String) -> String =
+  concat(
+    "Authorization: Bearer ",
+    concat(api_key, "\ncontent-type: application/json")
+  )
+end
+
+fn build_openai_body(model: String, msgs_inner: String) -> String =
+  concat(
+    "{\"model\":",
+    concat(
+      json_string(model),
+      concat(
+        ",\"messages\":[",
+        concat(
+          msgs_inner,
+          concat(
+            "],\"tools\":",
+            concat(openai_tools_json(), ",\"temperature\":0.2}")
+          )
+        )
+      )
+    )
+  )
+end
+
+fn build_openai_body_stream(model: String, msgs_inner: String) -> String =
+  concat(
+    "{\"model\":",
+    concat(
+      json_string(model),
+      concat(
+        ",\"messages\":[",
+        concat(
+          msgs_inner,
+          concat(
+            "],\"tools\":",
+            concat(openai_tools_json(), ",\"stream\":true,\"temperature\":0.2}")
+          )
+        )
+      )
+    )
+  )
+end
+
+fn is_openai_http_error(resp: String) -> Bool =
+  match json_extract(resp, "error.message")
+  | Some(_) => true
+  | None => false
+  end
+end
+
+fn print_openai_error(resp: String) -> Unit =
+  match json_extract(resp, "error.message")
+  | Some(value: m) => eprintln(m)
+  | None =>
+      match json_extract(resp, "message")
+      | Some(value: m2) => eprintln(m2)
+      | None => eprintln("OpenAI 兼容接口返回错误（无 error.message）")
+      end
+  end
+end

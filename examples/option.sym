@@ -1,0 +1,20 @@
+# 依赖默认加载的 stdlib/prelude.sym 中的 `Option`。
+# 若使用 `--no-prelude`，需在文件中自行定义 `Option` 或手写 import。
+
+fn unwrap_or_int(x: Option[Int], d: Int) -> Int =
+  match x
+  | None => d
+  | Some(value: v) => v
+  end
+end
+
+fn main() -> Unit =
+  do
+    println(unwrap_or_int(Option[Int].None, 0));
+    println(unwrap_or_int(Option[Int].Some(42), 0));
+    println(concat("len=", string_from_int(strlen("你好"))));
+    println(unwrap_or_int(parse_int("99"), -1));
+    assert(7 % 4 == 3, "mod");
+    ()
+  end
+end

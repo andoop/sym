@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["crates/symc"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+# 31：MSRV；升级时同步改 CI 与 docs/industrial/quality-and-ci.md
+rust-version = "1.74"

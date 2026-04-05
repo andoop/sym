@@ -1,0 +1,8 @@
+import math_lib
+
+fn main() -> Unit =
+  do
+    println(triple(4));
+    ()
+  end
+end

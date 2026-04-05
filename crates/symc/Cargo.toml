@@ -1,0 +1,23 @@
+[package]
+name = "symc"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Sym language: compiler, typechecker, and interpreter"
+
+[[bin]]
+name = "sym"
+path = "src/main.rs"
+
+[lib]
+name = "symc"
+path = "src/lib.rs"
+
+[dependencies]
+logos = "0.14"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+serde_json = "1"
+glob = "0.3"
+ureq = "2"

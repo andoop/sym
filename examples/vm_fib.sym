@@ -1,0 +1,6 @@
+# 仅使用 VM 子集（无内建、无字符串）：`sym run --vm examples/vm_fib.sym`
+fn fib(n: Int) -> Int =
+  if n < 2 then n else fib(n - 1) + fib(n - 2)
+end
+
+fn main() -> Int = fib(12) end
