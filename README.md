@@ -10,6 +10,8 @@
 
 **Status:** early-stage / **experimental** — semantics and CLI may change; pin a git SHA for serious experiments.
 
+**GitHub “About” box** (description / website / topics) is edited in the web UI, not from git. Copy-paste suggestions: [.github/ABOUT.md](.github/ABOUT.md).
+
 ## Features
 
 - **Types**: `Int`, `Bool`, `String`, `Unit`, algebraic data types (`type` / `match`), prelude `Option[T]` and `List[T]`

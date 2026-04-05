@@ -9,6 +9,8 @@
 
 **状态：** 早期 / **实验性** — 语义与 CLI 可能变更；严肃实验请固定 git 提交。
 
+**GitHub 主页右侧 About**（描述、网站、Topics）须在网页上填写，仓库内备有可复制文案：[.github/ABOUT.md](.github/ABOUT.md)。
+
 ## 环境
 
 需要安装 [Rust](https://rustup.rs/)（stable，**MSRV 1.74**，见根目录 `Cargo.toml`）。
