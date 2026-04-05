@@ -43,7 +43,7 @@ fn cmp_ordering_values(l: &Value, r: &Value) -> Result<Ordering, VmError> {
     match (l, r) {
         (Value::Int(a), Value::Int(b)) => Ok(a.cmp(b)),
         // UTF-8 字节序与 Unicode 标量字典序一致；与树解释器 `str` 比较相同。
-        (Value::String(a), Value::String(b)) => Ok(a.cmp(&b)),
+        (Value::String(a), Value::String(b)) => Ok(a.cmp(b)),
         _ => Err(VmError {
             message: "VM: comparison expects two Int or two String".into(),
         }),
