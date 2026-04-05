@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sym — a small language for clear, tool-friendly programs</title>
+  <meta name="description" content="Sym: statically typed interpreted language with ADTs, multi-file modules, tree interpreter and optional bytecode VM. CLI sym, written in Rust." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap inner">
+      <a class="logo" href="#">Sym<span>.</span></a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="#example">Example</a>
+        <a href="#docs">Docs</a>
+        <a href="https://github.com/andoop/sym">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <h1>A small language built for clarity</h1>
+        <p class="tagline">
+          Static types, algebraic data types, and a <strong>sym</strong> CLI — tree interpreter today,
+          optional bytecode VM for a compileable subset. Designed to be easy for humans, editors, and models to reason about.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/andoop/sym">View on GitHub</a>
+          <a class="btn btn-ghost" href="#install">Quick install</a>
+        </div>
+        <div class="badge-row">
+          <a href="https://github.com/andoop/sym/actions/workflows/ci.yml" title="CI">
+            <img src="https://github.com/andoop/sym/actions/workflows/ci.yml/badge.svg" alt="CI status" width="90" height="20" />
+          </a>
+          <img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT License" />
+          <img src="https://img.shields.io/badge/rust-1.74%2B-orange.svg" alt="Rust 1.74+" />
+        </div>
+        <p class="hero-meta">
+          Early-stage / experimental · MIT License ·
+          <a href="README.zh.html">中文概览</a> ·
+          <a href="https://github.com/andoop/sym/blob/main/README.zh.md">README.zh.md</a>
+        </p>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>What you get</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Type system</h3>
+            <p>Int, Bool, String, Unit, ADTs with <code>type</code> / <code>match</code>, prelude <code>Option</code> and <code>List</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Two runtimes</h3>
+            <p>Default tree-walking interpreter; <code>sym run --vm</code> for a stack VM on a well-defined subset.</p>
+          </article>
+          <article class="card">
+            <h3>Modules</h3>
+            <p><code>import</code> with stitched sources and <code># sym:file</code> markers for diagnostics across files.</p>
+          </article>
+          <article class="card">
+            <h3>Built-ins</h3>
+            <p>I/O, strings, JSON helpers, HTTPS (<code>http_post</code>, SSE fold), env, filesystem — see contracts in-repo.</p>
+          </article>
+          <article class="card">
+            <h3>Tooling</h3>
+            <p>Human-readable or single-line JSON errors; conformance tests for VM vs interpreter parity.</p>
+          </article>
+          <article class="card">
+            <h3>Open source</h3>
+            <p>Rust implementation, CI on Ubuntu &amp; macOS, contributing &amp; security guidelines on GitHub.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="install">
+      <div class="wrap split">
+        <div>
+          <h2>Install &amp; run</h2>
+          <p style="color: var(--muted); margin-top: 0;">
+            Requires <a href="https://rustup.rs/">Rust</a> stable (MSRV 1.74). Clone the repo, then:
+          </p>
+          <pre class="code-block"><code>cargo build -p symc --release
+./target/release/sym run examples/hello.sym
+
+# or during development
+cargo run -p symc -- run examples/hello.sym</code></pre>
+          <p class="lang-note">Install the binary crate locally: <code>cargo install --path crates/symc</code></p>
+        </div>
+        <div>
+          <h2>Useful commands</h2>
+          <pre class="code-block"><code>sym check FILE.sym      # typecheck + imports
+sym run FILE.sym        # run main
+sym run --vm FILE.sym   # bytecode VM (subset)
+sym tokens FILE.sym     # lexer debug</code></pre>
+          <p class="lang-note">JSON diagnostics: <code>sym check --message-format json …</code></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="example">
+      <div class="wrap">
+        <h2>Minimal example</h2>
+        <pre class="code-block"><code>fn greet(name: String) -> Unit =
+  println(concat("Hello, ", concat(name, "!")))
+end
+
+fn main() -> Unit =
+  greet("Sym")
+end</code></pre>
+      </div>
+    </section>
+
+    <section id="docs">
+      <div class="wrap">
+        <h2>Documentation</h2>
+        <p style="color: var(--muted); margin-top: 0;">
+          Deep-dive specs in the repository are largely in Chinese; the README is bilingual. On GitHub:
+        </p>
+        <ul style="color: var(--muted); line-height: 2;">
+          <li><a href="https://github.com/andoop/sym/blob/main/README.md">README (English)</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/README.zh.md">README (中文)</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/LANGUAGE.md">Language sketch</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/docs/spec/SEMANTICS.md">Semantics</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/docs/spec/SYNTAX.md">Syntax</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/VM_SUBSET.md">VM subset</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/docs/industrial/builtins-contracts.md">Built-in contracts</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/DEVELOPMENT.md">Development guide</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/CONTRIBUTING.md">Contributing</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>
+        <strong>Sym</strong> — MIT License ·
+        <a href="https://github.com/andoop/sym">github.com/andoop/sym</a>
+      </p>
+      <p style="margin-top: 0.5rem;">
+        This site is hosted with <a href="https://pages.github.com/">GitHub Pages</a> from the <code>docs/</code> folder.
+        Enable it in repo <strong>Settings → Pages → Build from branch → main → /docs</strong>.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

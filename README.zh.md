@@ -7,6 +7,8 @@
 
 **English overview:** [README.md](README.md)
 
+**项目主页（GitHub Pages）：** [andoop.github.io/sym](https://andoop.github.io/sym/) — 在仓库 **Settings → Pages** 选择分支 **`main`**、目录 **`/docs`**（说明见 [.github/PAGES.md](.github/PAGES.md)）。
+
 **状态：** 早期 / **实验性** — 语义与 CLI 可能变更；严肃实验请固定 git 提交。
 
 **GitHub 主页右侧 About**（描述、网站、Topics）须在网页上填写，仓库内备有可复制文案：[.github/ABOUT.md](.github/ABOUT.md)。

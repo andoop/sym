@@ -1,5 +1,7 @@
 # Documentation / 文档目录
 
+**GitHub Pages:** [index.html](index.html) is the project landing page (English) + [README.zh.html](README.zh.html); enable **Settings → Pages → `/docs`**. See [.github/PAGES.md](../.github/PAGES.md).
+
 **English:** Deep-dive notes under `spec/` and `industrial/` are **mostly Chinese**; the **README** and **CONTRIBUTING** in the repo root are bilingual (see [README.md](../README.md) and [README.zh.md](../README.zh.md)).
 
 | 目录 | 内容 |

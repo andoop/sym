@@ -10,6 +10,7 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 
+- GitHub Pages site in `docs/` (`index.html`, `assets/site.css`, `README.zh.html`, `.nojekyll`); setup notes in `.github/PAGES.md`; workspace `homepage` points at Pages URL.
 - `docs/DEVELOPMENT.md`, `SUPPORT.md`, `docs/spec/README.md`, `.editorconfig`, `rustfmt.toml`, `crates/symc/README.md`.
 - CI: `workflow_dispatch`, `fail-fast: false` matrix, `Swatinem/rust-cache`.
 - Issue template `documentation.md`; crates.io-oriented `keywords` / `categories` / `readme` / `homepage` on `symc`.

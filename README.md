@@ -8,6 +8,8 @@
 
 [中文说明 / 完整中文文档索引 → README.zh.md](README.zh.md)
 
+**Project website (GitHub Pages):** [andoop.github.io/sym](https://andoop.github.io/sym/) — enable in **Settings → Pages → Build from branch `main` → folder `/docs`** (see [.github/PAGES.md](.github/PAGES.md)).
+
 **Status:** early-stage / **experimental** — semantics and CLI may change; pin a git SHA for serious experiments.
 
 **GitHub “About” box** (description / website / topics) is edited in the web UI, not from git. Copy-paste suggestions: [.github/ABOUT.md](.github/ABOUT.md).

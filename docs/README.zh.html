@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sym — 清晰、利于工具协同的小型语言</title>
+  <meta name="description" content="Sym：带静态类型与 ADT 的解释型语言，多文件 import，树解释器与可选字节码 VM。命令行 sym，Rust 实现。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap inner">
+      <a class="logo" href="index.html">Sym<span>.</span></a>
+      <nav>
+        <a href="index.html">English</a>
+        <a href="https://github.com/andoop/sym">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <h1>Sym — 结构清晰、歧义少</h1>
+        <p class="tagline">
+          面向「人、编辑器与模型」都能跟上的小型语言：<strong>静态类型</strong>、<strong>代数类型</strong>、<strong>多文件 import</strong>；
+          默认<strong>树遍历解释器</strong>，可选 <code>sym run --vm</code> 走<strong>字节码 VM 子集</strong>。
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/andoop/sym">在 GitHub 上查看</a>
+          <a class="btn btn-ghost" href="index.html#install">English site</a>
+        </div>
+        <p class="hero-meta">
+          早期 / 实验性 · MIT ·
+          <a href="https://github.com/andoop/sym/blob/main/README.zh.md">完整中文 README（仓库）</a>
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>文档与规范（仓库内）</h2>
+        <ul style="color: var(--muted); line-height: 2;">
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/LANGUAGE.md">语言规范大纲</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/SEMANTICS.md">操作语义</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/SYNTAX.md">语法全览</a> ·
+              <a href="https://github.com/andoop/sym/blob/main/docs/spec/SOUL.md">设计理念</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/spec/VM_SUBSET.md">VM 子集</a></li>
+          <li><a href="https://github.com/andoop/sym/blob/main/docs/DEVELOPMENT.md">开发说明</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p><strong>Sym</strong> · MIT · <a href="https://github.com/andoop/sym">github.com/andoop/sym</a></p>
+    </div>
+  </footer>
+</body>
+</html>
