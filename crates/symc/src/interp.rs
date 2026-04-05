@@ -108,8 +108,7 @@ pub(crate) fn host_builtin_apply(b: HostBuiltin, args: &[Value]) -> Result<Value
             let (Value::String(path), Value::String(content)) = (&args[0], &args[1]) else {
                 return Err("`write_file` expects (String, String)".into());
             };
-            std::fs::write(path, content.as_bytes())
-                .map_err(|e| format!("write_file: {e}"))?;
+            std::fs::write(path, content.as_bytes()).map_err(|e| format!("write_file: {e}"))?;
             Ok(Value::Unit)
         }
         HostBuiltin::WriteFileOk => {
@@ -237,9 +236,9 @@ pub(crate) fn host_builtin_apply(b: HostBuiltin, args: &[Value]) -> Result<Value
                 None => value_option_none_string(),
             })
         }
-        HostBuiltin::HttpPostSseFold => Err(
-            "internal: HttpPostSseFold must be handled by the VM with nested calls".into(),
-        ),
+        HostBuiltin::HttpPostSseFold => {
+            Err("internal: HttpPostSseFold must be handled by the VM with nested calls".into())
+        }
     }
 }
 
@@ -1392,9 +1391,7 @@ fn shell_exec(cwd: &str, command: &str) -> Value {
     }
     let cmd = command.trim();
     if cmd.is_empty() {
-        return value_option_some_string(
-            "[exit -1]\n--- stderr ---\nempty command\n".into(),
-        );
+        return value_option_some_string("[exit -1]\n--- stderr ---\nempty command\n".into());
     }
     let root = cwd.trim();
     let root = if root.is_empty() { "." } else { root };

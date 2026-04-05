@@ -383,9 +383,13 @@ fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmEr
                 variant_idx,
                 field_name_indices,
             } => {
-                let typ = chunk.strings.get(*typ_idx).cloned().ok_or_else(|| VmError {
-                    message: format!("VM: BuildEnum bad typ_idx {typ_idx}"),
-                })?;
+                let typ = chunk
+                    .strings
+                    .get(*typ_idx)
+                    .cloned()
+                    .ok_or_else(|| VmError {
+                        message: format!("VM: BuildEnum bad typ_idx {typ_idx}"),
+                    })?;
                 let variant = chunk
                     .strings
                     .get(*variant_idx)
@@ -424,9 +428,7 @@ fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmEr
                 })?;
                 match val {
                     Value::Enum {
-                        variant: v,
-                        fields,
-                        ..
+                        variant: v, fields, ..
                     } if v == *want && fields.len() == *arity as usize => {
                         for (_, fv) in fields.iter().rev() {
                             stack.push(fv.clone());
@@ -467,7 +469,8 @@ fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmEr
                     })?;
                     let state0 = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
                     let body = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
-                    let headers = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
+                    let headers =
+                        pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
                     let url = pop_string(&mut stack, "VM: `http_post_sse_fold` expects String")?;
                     let Value::FnRef(reducer) = reducer else {
                         return Err(VmError {
@@ -475,11 +478,13 @@ fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmEr
                                 .into(),
                         });
                     };
-                    let ridx = prog.fn_names.iter().position(|n| n == &reducer).ok_or_else(|| {
-                        VmError {
+                    let ridx = prog
+                        .fn_names
+                        .iter()
+                        .position(|n| n == &reducer)
+                        .ok_or_else(|| VmError {
                             message: format!("VM: unknown reducer `{reducer}`"),
-                        }
-                    })?;
+                        })?;
                     let out = crate::interp::http_post_sse_fold_with_reducer(
                         &url,
                         &headers,
@@ -506,9 +511,8 @@ fn vm_run(prog: &Program, fn_idx: usize, args: Vec<Value>) -> Result<Value, VmEr
                         })?);
                     }
                     argv.reverse();
-                    let v = crate::interp::host_builtin_apply(*b, &argv).map_err(|m| VmError {
-                        message: m,
-                    })?;
+                    let v = crate::interp::host_builtin_apply(*b, &argv)
+                        .map_err(|m| VmError { message: m })?;
                     stack.push(v);
                 }
                 pc += 1;

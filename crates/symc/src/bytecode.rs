@@ -2,9 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::ast::{
-    BinOp, Expr, ExprKind, FnDef, Item, Module, Param, Stmt, TypeExpr, UnaryOp,
-};
+use crate::ast::{BinOp, Expr, ExprKind, FnDef, Item, Module, Param, Stmt, TypeExpr, UnaryOp};
 use crate::span::Span;
 
 #[derive(Debug)]
@@ -125,7 +123,9 @@ pub enum Instr {
     /// Push `Value::FnRef` for `prog.fn_names[idx]`.
     PushFn(usize),
     /// Pop `argc` arguments then `FnRef` callee; dispatch like `Call`.
-    CallIndirect { argc: u8 },
+    CallIndirect {
+        argc: u8,
+    },
     /// Pop `arity` values (top = last field in source order); push `Value::Enum`.
     BuildEnum {
         typ_idx: usize,
@@ -616,10 +616,7 @@ fn compile_expr(
                 }
                 if fname == "assert" {
                     if args.len() != 2 {
-                        return Err(unsupported(
-                            e.span,
-                            "VM: `assert` expects (Bool, String)",
-                        ));
+                        return Err(unsupported(e.span, "VM: `assert` expects (Bool, String)"));
                     }
                     compile_expr(&args[0], ctx, strings, out)?;
                     compile_expr(&args[1], ctx, strings, out)?;
@@ -687,25 +684,15 @@ fn compile_expr(
         ExprKind::Match { scrutinee, arms } => {
             compile_match(scrutinee, arms, e.span, ctx, strings, out)?;
         }
-        ExprKind::Construct {
-            typ,
-            variant,
-            args,
-        } => {
+        ExprKind::Construct { typ, variant, args } => {
             let TypeExpr::Named { name: tname, .. } = typ else {
-                return Err(unsupported(
-                    e.span,
-                    "VM: enum constructor needs named type",
-                ));
+                return Err(unsupported(e.span, "VM: enum constructor needs named type"));
             };
             let field_names = ctx
                 .variants
                 .get(&(tname.clone(), variant.clone()))
                 .ok_or_else(|| {
-                    unsupported(
-                        e.span,
-                        &format!("VM: unknown enum `{tname}::{variant}`"),
-                    )
+                    unsupported(e.span, &format!("VM: unknown enum `{tname}::{variant}`"))
                 })?;
             if field_names.len() != args.len() {
                 return Err(unsupported(
@@ -791,13 +778,12 @@ fn compile_pattern_from_stack(
                 }
                 for f in fields {
                     if let PatternField::Named(n, p) = f {
-                        let idx = def_fields
-                            .iter()
-                            .position(|dn| dn == n)
-                            .ok_or_else(|| CompileError {
+                        let idx = def_fields.iter().position(|dn| dn == n).ok_or_else(|| {
+                            CompileError {
                                 span: Span::new(0, 0),
                                 message: format!("VM: unknown field `{n}` in pattern"),
-                            })?;
+                            }
+                        })?;
                         out.push(Instr::LoadLocal(temps[idx]));
                         compile_pattern_from_stack(
                             p.as_ref(),
