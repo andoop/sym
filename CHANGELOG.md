@@ -10,5 +10,8 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 
+- `docs/DEVELOPMENT.md`, `SUPPORT.md`, `docs/spec/README.md`, `.editorconfig`, `rustfmt.toml`, `crates/symc/README.md`.
+- CI: `workflow_dispatch`, `fail-fast: false` matrix, `Swatinem/rust-cache`.
+- Issue template `documentation.md`; crates.io-oriented `keywords` / `categories` / `readme` / `homepage` on `symc`.
 - GitHub community docs: English `README.md`, `README.zh.md`, `LICENSE` (MIT), issue/PR templates, `CODEOWNERS`, expanded `CONTRIBUTING` / `SECURITY` / `CODE_OF_CONDUCT`.
 - 工业成熟度脚手架：`docs/industrial/`、`docs/process/`、一致性测试说明、`SECURITY.md`、GitHub Actions CI。

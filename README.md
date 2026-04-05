@@ -8,6 +8,8 @@
 
 [中文说明 / 完整中文文档索引 → README.zh.md](README.zh.md)
 
+**Status:** early-stage / **experimental** — semantics and CLI may change; pin a git SHA for serious experiments.
+
 ## Features
 
 - **Types**: `Int`, `Bool`, `String`, `Unit`, algebraic data types (`type` / `match`), prelude `Option[T]` and `List[T]`
@@ -74,6 +76,8 @@ sym check --message-format json path/to/file.sym
 
 - **English (this file)**: overview and links  
 - **Chinese**: [README.zh.md](README.zh.md), [docs/README.md](docs/README.md)  
+- **Developer setup**: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)  
+- **Spec index**: [docs/spec/README.md](docs/spec/README.md)  
 - **Specs (zh)**: [LANGUAGE.md](docs/spec/LANGUAGE.md), [SEMANTICS.md](docs/spec/SEMANTICS.md), [SYNTAX.md](docs/spec/SYNTAX.md), [SOUL.md](docs/spec/SOUL.md) (design intent)  
 - **VM**: [VM_SUBSET.md](docs/spec/VM_SUBSET.md), [VM_TREE_PARITY.md](docs/spec/VM_TREE_PARITY.md)  
 - **Roadmap (37-step index, zh)**: [docs/industrial/CHECKLIST.md](docs/industrial/CHECKLIST.md)
@@ -91,7 +95,11 @@ CI runs the above on **Ubuntu** and **macOS** (see [.github/workflows/ci.yml](.g
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Support
+
+See [SUPPORT.md](SUPPORT.md) for where to ask questions and what to include in bug reports.
 
 ## Security
 

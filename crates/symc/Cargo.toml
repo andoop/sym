@@ -5,7 +5,11 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
 description = "Sym language: compiler, typechecker, and interpreter"
+keywords = ["sym", "language", "interpreter", "compiler", "vm"]
+categories = ["compilers", "command-line-utilities"]
 
 [[bin]]
 name = "sym"

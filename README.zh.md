@@ -7,6 +7,8 @@
 
 **English overview:** [README.md](README.md)
 
+**状态：** 早期 / **实验性** — 语义与 CLI 可能变更；严肃实验请固定 git 提交。
+
 ## 环境
 
 需要安装 [Rust](https://rustup.rs/)（stable，**MSRV 1.74**，见根目录 `Cargo.toml`）。
@@ -77,6 +79,12 @@ cargo run -p symc -- run examples/option.sym
 - **多文件**：`import` 解析与同目录 / `--stdlib` 回退。
 
 更完整的语义与示例见 `examples/` 与 `stdlib/prelude.sym`。**`examples/library_mgmt.sym`**：基于 `List[Book]` 的简易交互图书管理（内存数据）。
+
+## 开发与文档索引
+
+- 开发者搭建与模块说明：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)  
+- 规范目录：[docs/spec/README.md](docs/spec/README.md)  
+- 提问与缺陷反馈方式：[SUPPORT.md](SUPPORT.md)
 
 ## 参与与许可
 

@@ -16,6 +16,8 @@ Thanks for your interest in improving Sym and `symc`.
    ```
 3. For **language or stdlib behavior changes**, open an issue or RFC first (see `docs/process/rfc-template.md`).
 
+More detail: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Support expectations: [SUPPORT.md](SUPPORT.md).
+
 ## How to contribute
 
 - **Bugs**: open an issue with a minimal `.sym` reproducer and the exact `sym` command line.
@@ -34,6 +36,7 @@ All participants must follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## 提交 PR 前
 
+- 详见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)；支持范围见 [SUPPORT.md](SUPPORT.md)。
 - 执行：`cargo fmt -p symc --all`、`cargo clippy -p symc --all-targets -- -D warnings`、`cargo test --workspace`；并视情况运行 `scripts/conformance_vm_tree.sh`（需先 `cargo build -p symc`）。
 - **语言或标准库行为变更**：请先开 issue 或按 [`docs/process/rfc-template.md`](docs/process/rfc-template.md) 写 RFC 讨论。
 - **行为准则**：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。

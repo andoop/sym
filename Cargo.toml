@@ -8,3 +8,4 @@ license = "MIT"
 # 31：MSRV；升级时同步改 CI 与 docs/industrial/quality-and-ci.md
 rust-version = "1.74"
 repository = "https://github.com/andoop/sym"
+homepage = "https://github.com/andoop/sym"

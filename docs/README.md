@@ -8,4 +8,8 @@
 | [industrial/](industrial/) | 工业成熟度 37 步、内建契约、CI/质量、路线图等 |
 | [process/](process/) | RFC 模板、发布检查单、LTS 策略草案 |
 
+**开发**：[DEVELOPMENT.md](DEVELOPMENT.md) · **支持**：[SUPPORT.md](../SUPPORT.md)（仓库根目录）
+
+**规范索引**：[spec/README.md](spec/README.md)
+
 仓库总说明：英文 [README.md](../README.md) · 中文 [README.zh.md](../README.zh.md)。示例索引：[examples/README.md](../examples/README.md)。
